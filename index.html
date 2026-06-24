@@ -186,6 +186,19 @@
       <h3>5. The routing mindset</h3>
       <p>The cost-optimal setup is rarely one vendor. Run your premium interactive agent on whatever flat plan you already pay for; push <em>cheap bulk, background and vision</em> work to a low-cost metered key (Gemini Flash-Lite, Qwen-flash, DeepSeek V4 Flash); and consider a <em>local</em> model for privacy or very-high-volume background jobs. Match each task to the cheapest tool that's good enough.</p>
     </div>
+    <div class="card">
+      <h2>Plain-English: the "use a cheaper model" questions</h2>
+      <h3>What is "cache"?</h3>
+      <p>Imagine a tutor who, instead of having you re-read the whole textbook aloud every time you ask something, keeps a <strong>photocopy on their desk</strong>. <em>Cache-write</em> = the small cost of making that photocopy once; <em>cache-read</em> = glancing at it again, which is dirt cheap (~10% of the normal price on Claude, ~2% on DeepSeek). A coding agent re-reads your files and the conversation on <em>every</em> step, so the vast majority of your tokens are cheap cache reads — that's why a giant token count can still cost very little.</p>
+      <h3>Quality gap = B+ student vs A student</h3>
+      <p>On a "fix real bugs" exam, a cheaper model is a strong <strong>B+ student</strong> and the top Claude model is an <strong>A student</strong>. Both are smart; on your hardest multi-step jobs the A student makes fewer mistakes you'd otherwise have to clean up.</p>
+      <h3>Tool-use = a translator in the middle</h3>
+      <p>"Tools" = when the AI actually opens files, runs commands and edits code, not just chats. Claude Code was built to talk to Claude; pointing it at another model slips a <strong>translator</strong> in the middle. Usually fine, but it can occasionally fumble — especially with many agents firing at once. (GLM is <em>officially</em> supported, so its translator is far more reliable than the unofficial DeepSeek route.)</p>
+      <h3>Privacy = whose building stores your diary</h3>
+      <p>The cheap hosted versions of DeepSeek and GLM keep your data on computers <strong>in China</strong>, under Chinese law. Not sinister — just where the filing cabinet physically sits. Fix: use the same model from a <strong>Western host</strong> (OpenRouter / Fireworks / Together) or run it on your own machine.</p>
+      <h3>Using a cheaper model inside Claude Code — what carries over</h3>
+      <p>Swapping the model only works in <strong>Claude Code</strong> (the terminal tool) — <em>not</em> Claude.ai chat or Cowork, which are always Claude. Inside Claude Code, the <strong>harness</strong> (not the model) provides your files, local tools and MCP servers — so a swapped-in model like GLM still reads/edits your files and runs your tools, and your <code>CLAUDE.md</code> project memory still applies (it's just a file). What it does <strong>not</strong> get: Anthropic-only features — "ultracode"/max-effort orchestration, Claude's account-level memory, and the built-in web search (you'd add a search MCP server instead).</p>
+    </div>
   </section>
 
   <!-- ================= LOCAL AGENTS ================= -->
