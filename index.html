@@ -1,561 +1,542 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LLM Token Cost Calculator — DeepSeek vs Claude vs Gemini</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Cost & Strategy — Claude · DeepSeek · Gemini · OpenAI · Qwen · Local</title>
 <style>
-  :root {
-    --bg: #f7f8fa;
-    --card: #ffffff;
-    --ink: #1a1d24;
-    --muted: #5b6472;
-    --line: #e2e6ec;
-    --accent: #2b6cb0;
-    --good: #1f8a4c;
-    --warn: #b45309;
-    --max5: #8b5cf6;
-    --max20: #db2777;
-    --bar: #2b6cb0;
-    --bar-cheap: #1f8a4c;
+  :root{
+    --bg:#f7f8fa; --card:#fff; --ink:#1a1d21; --muted:#5b6470; --line:#e6e9ee;
+    --accent:#3b6ef5; --good:#1a9d5a; --warn:#b8860b; --bad:#c0392b;
+    --bar:#3b6ef5; --bar-cheap:#1a9d5a; --bar-sub:#8a93a0; --chip:#eef2fb;
+    --radius:12px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.5;
-    -webkit-text-size-adjust: 100%;
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
-  header h1 { font-size: 1.5rem; margin: 0 0 4px; }
-  header p.sub { margin: 0 0 16px; color: var(--muted); font-size: 0.92rem; }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  h2 { font-size: 1.05rem; margin: 0 0 12px; }
-  h3 { font-size: 0.95rem; margin: 18px 0 8px; }
-  label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px; }
-  .control { margin-bottom: 18px; }
-  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  input[type="range"] { flex: 1 1 200px; min-width: 140px; accent-color: var(--accent); }
-  input[type="number"] {
-    width: 130px; padding: 7px 8px; font-size: 0.95rem;
-    border: 1px solid var(--line); border-radius: 7px; text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
-  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .toggle-row input { width: 18px; height: 18px; accent-color: var(--accent); }
-  .toggle-row label { margin: 0; font-weight: 600; }
-  textarea {
-    width: 100%; min-height: 60px; padding: 8px; font-size: 0.85rem;
-    border: 1px solid var(--line); border-radius: 7px; font-family: ui-monospace, Menlo, Consolas, monospace;
-    resize: vertical;
-  }
-  .parse-btn {
-    margin-top: 8px; padding: 7px 14px; font-size: 0.85rem; font-weight: 600;
-    background: var(--accent); color: #fff; border: none; border-radius: 7px; cursor: pointer;
-  }
-  .parse-btn:active { opacity: 0.85; }
-  .parse-msg { font-size: 0.8rem; margin-top: 6px; min-height: 1em; }
-
-  /* Bar chart */
-  .chart { position: relative; }
-  .bar-item { margin-bottom: 9px; }
-  .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 3px; }
-  .bar-name { font-weight: 600; }
-  .bar-cost { font-variant-numeric: tabular-nums; color: var(--muted); }
-  .bar-track { background: #eef1f5; border-radius: 6px; height: 22px; overflow: hidden; position: relative; }
-  .bar-fill { height: 100%; border-radius: 6px; transition: width 0.18s ease; background: var(--bar); min-width: 2px; }
-  .bar-fill.cheapest { background: var(--bar-cheap); }
-  .cheapest-tag { color: var(--good); font-weight: 700; }
-
-  /* Reference lines overlay legend */
-  .reflines { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 4px; font-size: 0.8rem; }
-  .refchip { display: inline-flex; align-items: center; gap: 6px; }
-  .refdot { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
-  .refdot.m5 { background: var(--max5); }
-  .refdot.m20 { background: var(--max20); }
-
-  /* marker line drawn inside chart container */
-  .marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed; pointer-events: none; }
-  .marker.m5 { border-color: var(--max5); }
-  .marker.m20 { border-color: var(--max20); }
-  .marker .mtag {
-    position: absolute; top: -2px; font-size: 0.68rem; font-weight: 700; white-space: nowrap;
-    transform: translateX(-50%); padding: 1px 4px; border-radius: 4px; color: #fff;
-  }
-  .marker.m5 .mtag { background: var(--max5); }
-  .marker.m20 .mtag { background: var(--max20); }
-
-  .breakeven { font-size: 0.9rem; }
-  .breakeven .be-row { padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .breakeven .be-row:last-child { border-bottom: none; }
-  .be-model { font-weight: 700; }
-  .be-num { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; }
-
-  .note { font-size: 0.85rem; color: var(--muted); }
-  .note strong { color: var(--ink); }
-  .callout {
-    background: #fff8ed; border: 1px solid #f2d9a8; border-radius: 9px;
-    padding: 12px; font-size: 0.85rem; margin-bottom: 12px;
-  }
-  .callout.neutral { background: #eef4fb; border-color: #c5dbf0; }
-  details { font-size: 0.82rem; }
-  details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-  .sources { margin: 10px 0 0; padding-left: 18px; }
-  .sources li { margin-bottom: 8px; line-height: 1.4; }
-  .sources a { color: var(--accent); word-break: break-word; }
-  .acc { color: var(--muted); font-size: 0.78rem; }
-  footer { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 8px 0 24px; }
-  code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 0.82em; }
-  .flag { color: var(--warn); }
+  .wrap{max-width:920px; margin:0 auto; padding:20px 16px 64px}
+  header h1{font-size:1.55rem; margin:0 0 4px; letter-spacing:-0.01em}
+  header p.sub{color:var(--muted); margin:0 0 16px; font-size:0.95rem}
+  .tabs{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 18px; position:sticky; top:0;
+    background:linear-gradient(var(--bg),var(--bg) 70%,rgba(247,248,250,0)); padding:8px 0; z-index:5}
+  .tab{appearance:none; border:1px solid var(--line); background:var(--card); color:var(--muted);
+    padding:8px 14px; border-radius:999px; font-size:0.9rem; cursor:pointer; transition:.15s}
+  .tab:hover{border-color:#cdd4de}
+  .tab[aria-selected="true"]{background:var(--ink); color:#fff; border-color:var(--ink)}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px; margin:0 0 16px}
+  h2{font-size:1.15rem; margin:2px 0 12px}
+  h3{font-size:1rem; margin:18px 0 8px}
+  label{font-size:0.9rem; font-weight:600; display:block; margin:0 0 4px}
+  .hint{color:var(--muted); font-size:0.83rem; margin:4px 0 0}
+  .note{color:var(--muted); font-size:0.85rem}
+  .field{margin:0 0 16px}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:560px){.row2{grid-template-columns:1fr}}
+  input[type=range]{width:100%; accent-color:var(--accent); margin:6px 0 0}
+  input[type=number]{width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+    font:inherit; font-variant-numeric:tabular-nums}
+  textarea{width:100%; min-height:90px; padding:10px; border:1px solid var(--line); border-radius:8px;
+    font:0.85rem/1.4 var(--mono); resize:vertical}
+  .inline{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .switch{display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:0.9rem}
+  button.act{appearance:none; border:1px solid var(--accent); background:var(--accent); color:#fff;
+    padding:8px 14px; border-radius:8px; font:inherit; font-size:0.9rem; cursor:pointer}
+  button.ghost{background:#fff; color:var(--accent)}
+  .headline{border:1px solid #cfe0d6; background:#f1faf4; border-radius:var(--radius); padding:14px 16px; margin:0 0 16px}
+  .headline.neutral{border-color:var(--line); background:#f3f5f8}
+  .headline strong{font-size:1.05rem}
+  .save{color:var(--good); font-weight:700}
+  /* chart */
+  .chart{margin:6px 0 0}
+  .bar-row{display:grid; grid-template-columns:170px 1fr auto; gap:10px; align-items:center; padding:5px 0}
+  @media(max-width:560px){.bar-row{grid-template-columns:120px 1fr auto; gap:7px; font-size:0.85rem}}
+  .bar-name{font-size:0.86rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .bar-track{background:#eef1f5; border-radius:6px; height:20px; position:relative; overflow:hidden}
+  .bar-fill{height:100%; background:var(--bar); border-radius:6px; transition:width .25s ease}
+  .bar-fill.cheap{background:var(--bar-cheap)}
+  .bar-cost{font-variant-numeric:tabular-nums; color:var(--muted); font-size:0.86rem; min-width:74px; text-align:right}
+  .sub-lines{margin:12px 0 0; padding:10px 0 0; border-top:1px dashed var(--line)}
+  .sub-line{display:flex; justify-content:space-between; font-size:0.85rem; color:var(--muted); padding:2px 0}
+  .sub-line b{color:var(--ink)}
+  .breakeven{font-size:0.9rem}
+  .be-row{padding:7px 0; border-bottom:1px solid var(--line)}
+  .be-row:last-child{border:none}
+  .chip{display:inline-block; background:var(--chip); color:var(--accent); border-radius:999px;
+    padding:1px 9px; font-size:0.75rem; font-weight:600; margin-left:6px}
+  .flag{display:inline-block; background:#fdf3e3; color:var(--warn); border-radius:6px; padding:0 6px; font-size:0.74rem; font-weight:600}
+  table{width:100%; border-collapse:collapse; font-size:0.85rem; margin:8px 0}
+  th,td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{color:var(--muted); font-weight:600}
+  code{font-family:var(--mono); font-size:0.85em; background:#eef1f5; padding:1px 5px; border-radius:5px}
+  pre{background:#eef1f5; padding:12px; border-radius:8px; overflow:auto; font-size:0.8rem}
+  pre code{background:none; padding:0}
+  details{border-top:1px solid var(--line); padding:10px 0 0; margin:10px 0 0}
+  summary{cursor:pointer; font-weight:600; font-size:0.9rem}
+  .pane{display:none}
+  .pane.active{display:block; animation:fade .2s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)}to{opacity:1; transform:none}}
+  .ok{color:var(--good)} .danger{color:var(--bad)}
+  .sources li{margin:0 0 9px; font-size:0.84rem}
+  a{color:var(--accent)}
+  .tiny{font-size:0.78rem; color:var(--muted)}
+  .pill-group{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 0}
+  .device{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:8px 0}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>LLM Token Cost Calculator</h1>
-    <p class="sub">Estimate monthly USD for DeepSeek, Claude API, and Gemini at your own token volumes — with Claude Max flat plans shown as reference lines. Neutral by design: see the cost winner and the caveats side by side.</p>
+    <h1>LLM Cost &amp; Strategy</h1>
+    <p class="sub">Estimate your real monthly cost across Claude, DeepSeek, Gemini, OpenAI, Qwen and local models — then understand which axis (flat plan vs metered API vs local) actually wins for you. Neutral by design; every rate is sourced. <span class="tiny" id="profileBadge"></span></p>
   </header>
 
-  <div class="callout neutral">
-    <strong>Read this first.</strong> DeepSeek is consistently the cheapest metered option here, often by 10×–35× versus frontier Claude/Gemini tiers. The trade-offs are real and separate from price: DeepSeek's hosted API stores data on servers in the People's Republic of China and is subject to PRC law (multiple governments restrict it on official devices); and DeepSeek V4 Pro Max scores ~80.6% on SWE-bench Verified vs Opus 4.8 at ~88.6%. Self-hosting DeepSeek's open-weight (MIT) models or using a Western host avoids the China data path. Pick on cost <em>and</em> jurisdiction <em>and</em> quality — this tool only computes cost. <span class="flag">Several DeepSeek/Gemini figures below are from search-snippet fallbacks, not the official pages (the official pages returned HTTP 403 this run) — verify live before relying on them.</span>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-pane="calc" aria-selected="true">Calculator</button>
+    <button class="tab" role="tab" data-pane="explain" aria-selected="false">Explainer</button>
+    <button class="tab" role="tab" data-pane="local" aria-selected="false">Local agents</button>
+    <button class="tab" role="tab" data-pane="setup" aria-selected="false">Setup &amp; linking</button>
   </div>
 
-  <!-- ============ INPUTS ============ -->
-  <div class="card">
-    <h2>Your monthly usage</h2>
+  <!-- ================= CALCULATOR ================= -->
+  <section class="pane active" id="calc">
+    <div class="headline neutral" id="headline">
+      <strong>Enter your monthly token volumes below</strong> — or paste your <code>ccusage</code> output / drop a local <code>usage.json</code> beside this page, and it prefills automatically.
+    </div>
 
-    <div class="control">
-      <label for="inNum">Input tokens / month</label>
-      <div class="row">
-        <input type="range" id="inRange" min="0" max="1000" value="600" aria-label="Input tokens slider">
-        <input type="number" id="inNum" min="0" max="2000000000" step="1000" value="20000000">
+    <div class="card">
+      <h2>Your monthly usage</h2>
+      <p class="hint" style="margin-top:0">These four fields map 1:1 to the columns in <code>ccusage monthly</code>. Cache-read is usually the biggest — and the cheapest — bucket.</p>
+      <div class="row2">
+        <div class="field">
+          <label for="inNum">Input tokens</label>
+          <input type="number" id="inNum" min="0" step="1000" value="2000000">
+          <input type="range" id="inRange" min="0" max="1000" value="0">
+        </div>
+        <div class="field">
+          <label for="outNum">Output tokens</label>
+          <input type="number" id="outNum" min="0" step="1000" value="9000000">
+          <input type="range" id="outRange" min="0" max="1000" value="0">
+        </div>
+        <div class="field">
+          <label for="cwNum">Cache-write tokens <span class="tiny">(cache create)</span></label>
+          <input type="number" id="cwNum" min="0" step="1000" value="60000000">
+          <input type="range" id="cwRange" min="0" max="1000" value="0">
+        </div>
+        <div class="field">
+          <label for="crNum">Cache-read tokens</label>
+          <input type="number" id="crNum" min="0" step="1000" value="840000000">
+          <input type="range" id="crRange" min="0" max="1000" value="0">
+        </div>
       </div>
-      <div class="hint">Tokens you send to the model (prompts, context, files). Log-ish scale up to ~2 billion.</div>
-    </div>
-
-    <div class="control">
-      <label for="outNum">Output tokens / month</label>
-      <div class="row">
-        <input type="range" id="outRange" min="0" max="1000" value="500" aria-label="Output tokens slider">
-        <input type="number" id="outNum" min="0" max="2000000000" step="1000" value="5000000">
+      <div class="inline" style="margin-top:4px">
+        <label class="switch"><input type="checkbox" id="batchToggle"> Batch jobs (−50% where supported)</label>
       </div>
-      <div class="hint">Tokens the model generates back to you.</div>
+      <details>
+        <summary>Paste <code>ccusage monthly</code> output</summary>
+        <p class="hint">Paste the table (or <code>--json</code>) and I'll pull out the four token counts.</p>
+        <textarea id="paste" placeholder="│ 2026-06 │ All │ … │ 1,931,264 │ 9,139,877 │ 62,632,095 │ 842,735,498 │ 916,438,734 │ $1247.79 │"></textarea>
+        <div class="inline" style="margin-top:8px">
+          <button class="act" id="parseBtn">Parse &amp; fill</button>
+          <span class="hint" id="parseMsg"></span>
+        </div>
+      </details>
     </div>
 
-    <div class="control">
-      <label for="cacheRange">Cache-hit rate on input: <span id="cacheVal">0</span>%</label>
-      <div class="row">
-        <input type="range" id="cacheRange" min="0" max="100" value="0" aria-label="Cache hit percentage">
+    <div class="card">
+      <h2>Estimated monthly cost by option</h2>
+      <p class="hint" style="margin-top:0">Bars = metered (pay-per-token) APIs at <em>your</em> volumes. Dashed section = flat subscription prices (<strong>not</strong> per-token — shown only as reference markers; interactive use, rate-limited). Cheapest metered bar is green.</p>
+      <div class="chart" id="chart"></div>
+      <div class="sub-lines" id="subLines"></div>
+    </div>
+
+    <div class="card">
+      <h2>Subscription vs API break-even</h2>
+      <p class="hint" style="margin-top:0">At your current input:output ratio, the monthly token volume where metered <strong>Claude API</strong> cost crosses <strong>$200</strong> (Max 20×). Below it the API is cheaper; above it the flat plan wins — for interactive use only.</p>
+      <div class="breakeven" id="breakeven"></div>
+    </div>
+
+    <div class="card">
+      <p class="note"><strong>Neutrality &amp; accuracy.</strong> Favours no vendor; computes cost only. Quality, tool-use reliability, data jurisdiction, privacy and rate limits are not priced in and matter for the decision. Many non-Claude prices below are <span class="flag">UNCONFIRMED</span> (official pages blocked the fetch; figures from aggregators). <strong>Verify live prices before committing spend. Not financial advice.</strong></p>
+    </div>
+  </section>
+
+  <!-- ================= EXPLAINER ================= -->
+  <section class="pane" id="explain">
+    <div class="card" id="explainPersonal" style="display:none"></div>
+    <div class="card">
+      <h2>How LLM billing actually works</h2>
+      <h3>1. Tokens</h3>
+      <p>Models bill per <strong>token</strong> (~¾ of a word). You pay separately for <strong>input</strong> (what you send — prompts, files, conversation history) and <strong>output</strong> (what the model generates). Output is almost always the pricier side — typically 3–6× the input rate.</p>
+      <h3>2. The cache is the whole game for coding agents</h3>
+      <p>A coding agent re-sends huge context (your files, the running transcript) on <em>every</em> turn. Without caching you'd pay full input price each time. <strong>Prompt caching</strong> stores that repeated context so subsequent turns read it at a steep discount:</p>
+      <ul>
+        <li><strong>Cache write</strong> (creating the cache) costs a little <em>more</em> than normal input (~1.25× on Claude).</li>
+        <li><strong>Cache read</strong> (reusing it) costs ~<strong>10%</strong> of the input rate on Claude — and as little as ~2% on DeepSeek.</li>
+      </ul>
+      <p>This is why a usage report can show <em>hundreds of millions</em> of tokens but a modest effective cost: the vast majority are cheap cache reads. It's also why "total tokens" is a misleading cost proxy — the <em>mix</em> matters far more than the total.</p>
+      <h3>3. Flat subscription vs metered API — different axes</h3>
+      <p>A <strong>subscription</strong> (Claude Max, ChatGPT Plus/Pro) is a flat monthly fee with a <em>rate limit</em> — you buy a capped firehose, not a token bucket, and the providers don't publish exact token quotas. A <strong>metered API</strong> charges exactly per token with no ceiling. Neither is "cheaper" in the abstract — it depends entirely on volume.</p>
+      <h3>4. Reading a break-even</h3>
+      <p>Convert the flat fee into the token volume that would cost the same at API rates. Above that volume the subscription wins; below it, metering wins. For Claude Opus at $5/$25 per 1M (80/20 blend ≈ $9/1M), $200 buys ≈ <strong>22M tokens/mo</strong> of API — a heavy daily agent user passes that in <em>days</em>, so the flat plan wins decisively. The Calculator tab computes this live for your ratio.</p>
+      <h3>5. The routing mindset</h3>
+      <p>The cost-optimal setup is rarely one vendor. Run your premium interactive agent on whatever flat plan you already pay for; push <em>cheap bulk, background and vision</em> work to a low-cost metered key (Gemini Flash-Lite, Qwen-flash, DeepSeek V4 Flash); and consider a <em>local</em> model for privacy or very-high-volume background jobs. Match each task to the cheapest tool that's good enough.</p>
+    </div>
+  </section>
+
+  <!-- ================= LOCAL AGENTS ================= -->
+  <section class="pane" id="local">
+    <div class="card" id="localPersonal" style="display:none"></div>
+    <div class="card">
+      <h2>Running models locally with Ollama</h2>
+      <p style="margin-top:0"><a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> is a free, open-source tool that runs open-weight models on your own machine. Marginal cost per token is <strong>~$0</strong> — you pay only electricity and the up-front (amortized) hardware. It serves an <strong>OpenAI-compatible endpoint at <code>http://localhost:11434/v1</code></strong>, so any tool that speaks the OpenAI API — coding agents, IDE extensions — can point at a local model as a drop-in substitute.</p>
+      <p class="note"><code>ollama pull qwen3-coder</code> then <code>ollama run qwen3-coder</code>. Models are quantized GGUF files (default Q4_K_M — a good size/quality balance). Commonly run: Qwen / Qwen3-Coder, Llama, DeepSeek-R1 distillations, and OpenAI's open-weight <code>gpt-oss</code>.</p>
+      <h3>The trade-offs (honest)</h3>
+      <ul>
+        <li><strong>Quality:</strong> what fits on a single consumer GPU (≤~32B) trails flagship cloud models. SWE-bench: Opus 4.8 ≈ 88.6% vs the best you'll realistically self-host being well below that.</li>
+        <li><strong>Speed:</strong> fine for chat; a coding agent's heavy prompt-prefill is slower and bigger models crawl on small VRAM.</li>
+        <li><strong>Tool-use reliability:</strong> agentic loops depend on solid function-calling — verify on your real tasks before trusting a local model for it.</li>
+        <li><strong>Cost shape:</strong> local is cheapest <em>per token at very high sustained volume</em> (amortized hardware divides across many tokens) and poor value at low volume, where a metered API or a plan you already own wins.</li>
+      </ul>
+
+      <h3>VRAM → model-size guide</h3>
+      <p class="hint" style="margin-top:0">Rule of thumb: <code>VRAM_GB ≈ params_B × bytes_per_param × 1.2</code>; bytes/param ≈ 0.5 (Q4_K_M), 1.0 (Q8), 2.0 (FP16). Add 1–4 GB for long context.</p>
+      <table>
+        <thead><tr><th>Model size</th><th>Q4_K_M</th><th>Practical fit</th></tr></thead>
+        <tbody>
+          <tr><td>7–8B</td><td>~5–7 GB</td><td>8 GB GPU runs this comfortably</td></tr>
+          <tr><td>13–14B</td><td>~10–12 GB</td><td>12 GB GPU; 16 GB for Q8</td></tr>
+          <tr><td>32–34B <span class="tiny">(incl. Qwen3.6-27B)</span></td><td>~21–23 GB</td><td><strong>24 GB (RTX 3090/4090) runs this well</strong></td></tr>
+          <tr><td>70B</td><td>~40–46 GB</td><td>needs 48 GB / 2×24 GB</td></tr>
+        </tbody>
+      </table>
+      <p class="note"><strong>Apple Silicon</strong> (unified memory): 16 GB → 7–8B; 32 GB → ~32B Q4; 64 GB → 70B Q4. <strong>Old Intel Macs are CPU-only — not recommended</strong> (~3–5 tok/s on 7B). <strong>Thin-and-light laptops</strong> (Core Ultra NPU / iGPU): realistic ceiling ~7–8B Q4; 32B+ not feasible. <strong>NAS / Time-Capsule-type devices are storage, not compute</strong> — they can hold model files but can't run them.</p>
+
+      <h3>What does "free" actually cost? (electricity)</h3>
+      <p class="hint" style="margin-top:0">Estimate the running cost for the output volume from the Calculator tab. Defaults: Irish electricity ≈ $0.38/kWh (≈€0.35).</p>
+      <div class="row2">
+        <div class="field"><label for="tps">Generation speed (tokens/sec)</label><input type="number" id="tps" min="1" value="60"><div class="hint">8B Q4: ~128 (RTX 4090), ~112 (3090), ~25–30 (GTX 10-series), ~8–12 (laptop NPU).</div></div>
+        <div class="field"><label for="watts">System power under load (W)</label><input type="number" id="watts" min="1" value="300"><div class="hint">~300 W desktop+GPU; ~35 W thin laptop.</div></div>
+        <div class="field"><label for="kwh">Electricity price ($/kWh)</label><input type="number" id="kwh" min="0" step="0.01" value="0.38"></div>
+        <div class="field"><label for="hwAmort">Amortized hardware ($/month)</label><input type="number" id="hwAmort" min="0" value="0"><div class="hint">GPU cost ÷ months of use. 0 if you already own it.</div></div>
       </div>
-      <div class="hint">Share of input tokens served from prompt cache. Cached tokens bill at ~10% of the normal input rate (0.1× cache-read multiplier). Applies to the input portion only.</div>
+      <div class="headline neutral" id="localCost" style="margin-bottom:0"></div>
     </div>
+  </section>
 
-    <div class="control">
-      <div class="toggle-row">
-        <input type="checkbox" id="batchToggle">
-        <label for="batchToggle">Batch mode (−50% on supported options)</label>
-      </div>
-      <div class="hint">Batch / async processing gives −50% on both input and output for the <strong>Claude API</strong> and <strong>Gemini</strong> metered tiers. It does <strong>not</strong> apply to DeepSeek's pricing here, nor to the flat Claude Max plans.</div>
+  <!-- ================= SETUP & LINKING ================= -->
+  <section class="pane" id="setup">
+    <div class="card">
+      <h2>Auto-updating usage — the safe way</h2>
+      <p style="margin-top:0">You <strong>cannot</strong> link a Claude/Gemini/OpenAI <em>account</em> to a static web page, and you must <strong>never</strong> put an API key in a public page (anyone can read it via Inspect Element — Google's own docs say <em>"Do not hardcode API keys directly in web or mobile apps … run a backend proxy"</em>). The safe pattern keeps everything on your machine:</p>
+      <ol>
+        <li>Run <code>sync-usage.ps1</code> (in this repo). It runs <code>npx ccusage@latest monthly --json</code> locally and writes <code>usage.json</code> beside this page.</li>
+        <li>This page <code>fetch()</code>es <code>usage.json</code> and <code>profile.local.json</code> at load and prefills automatically. Both files are <strong>git-ignored and never published</strong>; nothing is transmitted anywhere.</li>
+        <li>For personalization, copy <code>profile.local.example.json</code> → <code>profile.local.json</code> and fill in your role / location / devices.</li>
+      </ol>
+      <pre><code># Windows PowerShell, in the repo folder
+./sync-usage.ps1
+# → writes usage.json (local only). Reload the page.</code></pre>
     </div>
-
-    <div class="control">
-      <label for="paste">Paste your <code>/usage</code> numbers (optional)</label>
-      <textarea id="paste" placeholder="Paste output that mentions input/output token counts, e.g.&#10;Input tokens: 18,400,000&#10;Output: 4.2M tokens"></textarea>
-      <button class="parse-btn" id="parseBtn" type="button">Parse &amp; fill</button>
-      <div class="parse-msg" id="parseMsg"></div>
-    </div>
-  </div>
-
-  <!-- ============ LIVE OUTPUT ============ -->
-  <div class="card">
-    <h2>Estimated monthly cost</h2>
-    <div class="reflines">
-      <span class="refchip"><span class="refdot m5"></span> Max 5× — $100/mo flat</span>
-      <span class="refchip"><span class="refdot m20"></span> Max 20× — $200/mo flat</span>
-    </div>
-    <div class="hint" style="margin-bottom:12px;">Bars are metered (pay-per-token) options. The dashed lines are Claude Max flat-rate plans — <strong>not per-token</strong>, interactive-use only (see note below). Cheapest metered option is highlighted in green.</div>
-    <div class="chart" id="chart"></div>
-  </div>
-
-  <!-- ============ BREAK-EVEN ============ -->
-  <div class="card">
-    <h2>Break-even vs Max 20× ($200/mo flat)</h2>
-    <div class="hint" style="margin-bottom:10px;">At your current input:output ratio, the total monthly token volume (input + output) at which metered Claude API cost crosses $200. Below that volume the API is cheaper; above it the flat Max 20× plan wins — <em>for interactive use only</em>.</div>
-    <div class="breakeven" id="breakeven"></div>
-  </div>
-
-  <!-- ============ NOTES ============ -->
-  <div class="card">
-    <div class="callout">
-      <strong>Claude Max is a flat, interactive-only plan — not an API tier.</strong> Pro $20 / Max 5× $100 / Max 20× $200 per month buy rate-limited interactive access (roughly ~225 messages per rolling 5h on 5×, ~900 on 20×; the 5-hour limit was doubled on 6 May 2026). Anthropic does <strong>not</strong> publish exact token quotas for these plans, so this tool does not invent any — the $100/$200 lines are the flat prices, shown only as reference markers. <strong>Change (15 Jun 2026):</strong> programmatic / non-interactive usage (Agent SDK, <code>claude -p</code>, GitHub Actions, scheduled/headless runs) draws from a <em>separate</em> monthly credit pool billed at API rates — $20 (Pro) / $100 (Max 5×) / $200 (Max 20×). Interactive terminal use is unaffected. If you run parallel agentic loops headlessly, you are effectively on metered API pricing, not the flat plan.
-    </div>
-    <p class="note"><strong>Neutrality &amp; accuracy.</strong> This calculator favours no vendor. It computes cost only; data jurisdiction, privacy, model quality, tool-use reliability, and rate limits are not priced in and matter for your decision. Prices change frequently and some figures here come from search-snippet fallbacks rather than the official pages — <strong>verify live prices</strong> before committing spend.</p>
-    <p class="note">DeepSeek cost note: V4 Pro's shown price ($1.74/$3.48 standard) reflects the seed figures. A periodic ~75% promo brings it to ~$0.435/$0.87; fallback sources suggest the discounted rate may have become the standard price after 2026-05-31, but this could not be confirmed against the official page. V4 Flash cache-hit input is ~$0.0028/1M (a ~98% discount). Legacy <code>deepseek-chat</code> / <code>deepseek-reasoner</code> deprecate 2026-07-24 and route to V4 Flash.</p>
-  </div>
-
-  <!-- ============ ROUTING ============ -->
-  <div class="card">
-    <details>
-      <summary>Route Claude Code → DeepSeek (Windows PowerShell)</summary>
-      <p class="note" style="margin-top:10px;">Official Anthropic-compatible endpoint. Be aware tool-use reliability with non-Anthropic models can differ from native Claude — test your agentic loops.</p>
-<pre style="background:#eef1f5;padding:10px;border-radius:7px;overflow:auto;font-size:0.78rem;"><code>$env:ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
+    <div class="card">
+      <h2>Route Claude Code → DeepSeek (Windows)</h2>
+      <p class="note" style="margin-top:0">Official Anthropic-compatible endpoint. Tool-use reliability with non-Anthropic models can differ from native Claude — test your agentic loops before relying on it.</p>
+<pre><code>$env:ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
 $env:ANTHROPIC_AUTH_TOKEN="&lt;your-deepseek-key&gt;"
 $env:ANTHROPIC_MODEL="deepseek-v4-pro"
-$env:ANTHROPIC_DEFAULT_OPUS_MODEL="deepseek-v4-pro"
-$env:ANTHROPIC_DEFAULT_SONNET_MODEL="deepseek-v4-pro"
 $env:ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek-v4-flash"
-$env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1"
-$env:CLAUDE_CODE_EFFORT_LEVEL="max"</code></pre>
-      <p class="note">Community alternative: <code>@musistudio/claude-code-router</code> (a third-party, not Anthropic, multi-provider proxy): <code>npm i -g @musistudio/claude-code-router</code> then <code>ccr code</code>. Config lives in <code>~/.claude-code-router/config.json</code>; some transformers are experimental. Restart with <code>ccr restart</code> after config changes.</p>
-    </details>
-  </div>
+claude</code></pre>
+      <p class="note">Multi-provider alternative (also fronts OpenAI/Gemini/Qwen/local): <code>npm i -g @musistudio/claude-code-router</code> then <code>ccr code</code>. For local models, point any OpenAI-compatible client at <code>http://localhost:11434/v1</code>.</p>
+    </div>
+    <div class="card">
+      <h2>Why no API keys in the page</h2>
+      <p class="note" style="margin-top:0">A static site has no server to hide a secret. Any key in client-side JS is downloadable by every visitor and extractable from the browser. To call a paid API from a web app safely, put the key behind <em>your own backend proxy</em> that the page calls — the key never reaches the browser. For this calculator, no key is needed at all: it only does arithmetic on token counts you provide.</p>
+    </div>
+  </section>
 
-  <!-- ============ SOURCES ============ -->
+  <!-- ================= SOURCES ================= -->
   <div class="card">
     <details open>
-      <summary>Sources &amp; footnotes (every headline rate, with access date)</summary>
+      <summary>Sources &amp; footnotes — every headline rate, accessed 2026-06-24</summary>
       <ol class="sources">
-        <li>
-          <strong>Claude API pricing</strong> — Opus 4.8 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5 per 1M; Batch −50% both ways; cache read ≈0.1× input, cache write ≈1.25× input. <span class="acc">confirmed.</span><br>
-          <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noopener">platform.claude.com/docs/en/about-claude/pricing</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>DeepSeek API pricing</strong> — V4 Flash $0.14/$0.28 (cache-hit input ~$0.0028); V4 Pro $1.74/$3.48 standard (~75% promo ⇒ ~$0.435/$0.87). <span class="flag acc">UNCONFIRMED — official page returned HTTP 403; figures from WebSearch fallback snippets (official-page snippet + aggregators).</span><br>
-          <a href="https://api-docs.deepseek.com/quick_start/pricing" target="_blank" rel="noopener">api-docs.deepseek.com/quick_start/pricing</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>Gemini API pricing</strong> — Gemini 3 Pro $2/$12 (≤200k context; $4/$18 above); Gemini 3.5 Flash $1.50/$9; Gemini 3.1 Flash-Lite $0.25/$1.50; Batch −50%. <span class="flag acc">UNCONFIRMED — official page returned HTTP 403; figures from third-party aggregator snippets, internally inconsistent across model generations.</span><br>
-          <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">ai.google.dev/gemini-api/docs/pricing</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>Claude Max consumer plans</strong> — Pro $20 / Max 5× $100 / Max 20× $200 per month; flat, rate-limited, interactive-only; ~225 (5×) / ~900 (20×) msgs per rolling 5h; 5h limit doubled 6 May 2026; exact token quotas not published; 15 Jun 2026 separate programmatic credit pool at API rates. <span class="acc">(Per verified seed figures; verify on claude.com/pricing.)</span><br>
-          <a href="https://claude.com/pricing" target="_blank" rel="noopener">claude.com/pricing</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>DeepSeek data jurisdiction / restrictions</strong> — Privacy Policy: data stored on "secure servers located in the People's Republic of China"; restrictions on official devices by Italy, Australia, Taiwan, South Korea, US Navy/NASA/Pentagon, Texas, etc.; open-weight models (MIT) self-hostable / Western-hosted. <span class="flag acc">UNCONFIRMED — primary CDN returned HTTP 403; corroborated by multiple secondary sources (Al Jazeera, NBC, CNBC, The Hill).</span><br>
-          <a href="https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy-2025-02-14.html" target="_blank" rel="noopener">cdn.deepseek.com/policies/en-US/deepseek-privacy-policy-2025-02-14.html</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>Claude Code → DeepSeek routing</strong> — official Anthropic-compatible base URL + env-var model overrides. <span class="flag acc">UNCONFIRMED — requested doc returned HTTP 403; values from the official deepseek-ai GitHub mirror (docs/claude_code.md).</span><br>
-          <a href="https://api-docs.deepseek.com/quick_start/agent_integrations/claude_code" target="_blank" rel="noopener">api-docs.deepseek.com/quick_start/agent_integrations/claude_code</a> · accessed 2026-06-24
-        </li>
-        <li>
-          <strong>claude-code-router (community proxy)</strong> — install/usage, localhost:3456 interception, DeepSeek provider config. <span class="acc">confirmed; third-party, not an Anthropic product.</span><br>
-          <a href="https://github.com/musistudio/claude-code-router" target="_blank" rel="noopener">github.com/musistudio/claude-code-router</a> · accessed 2026-06-24
-        </li>
+        <li><strong>Claude API &amp; Max</strong> — Opus 4.8 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5 per 1M; Batch −50%; cache read ≈0.1×, write ≈1.25×. Max 5× $100 / 20× $200/mo, flat &amp; rate-limited; quotas not published; 15 Jun 2026 programmatic pool at API rates. <span class="ok">confirmed.</span> <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noopener">platform.claude.com</a></li>
+        <li><strong>DeepSeek</strong> — V4 Flash $0.14/$0.28 (cache-hit ~$0.0028); V4 Pro $0.435/$0.87 (75% cut made permanent after 2026-05-31). Hosted API stores data in the PRC; open-weight (MIT) for self/Western hosting. <span class="flag">UNCONFIRMED — official page 403; corroborated across aggregators.</span> <a href="https://api-docs.deepseek.com/quick_start/pricing" target="_blank" rel="noopener">api-docs.deepseek.com</a></li>
+        <li><strong>Gemini</strong> — 3 Pro $2/$12 (≤200k; $4/$18 above); 3.5 Flash $1.50/$9; 3.1 Flash-Lite $0.25/$1.50. Batch −50%. Free tier trains on your data. <span class="flag">UNCONFIRMED — 403; aggregator fallback.</span> <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">ai.google.dev</a></li>
+        <li><strong>OpenAI</strong> — GPT-5.5 $5/$30 (cached $0.50); GPT-5.4 $2.50/$15; 5.4-mini $0.75/$4.50; 5.4-nano $0.20/$1.25; 5.3-codex $1.75/$14. ChatGPT Plus $20, Pro $100/$200. <span class="flag">UNCONFIRMED — all OpenAI pages 403; aggregator fallback; post knowledge-cutoff lineup.</span> <a href="https://openai.com/api/pricing/" target="_blank" rel="noopener">openai.com/api/pricing</a></li>
+        <li><strong>Qwen</strong> — qwen-flash ~$0.05/$0.40, qwen-plus ~$0.40/$1.20, qwen-max ~$2.50/$7.50 (wide cross-source variance; tiered by input length). Open-weight Qwen3.6 (Apache-2.0) for local; Qwen3.7 API-only. <span class="flag">UNCONFIRMED — 403; aggregator fallback.</span> <a href="https://www.alibabacloud.com/help/en/model-studio/models" target="_blank" rel="noopener">alibabacloud.com/model-studio</a></li>
+        <li><strong>Ollama (local) mechanics</strong> — free/open-source; GGUF; OpenAI-compatible endpoint on <code>:11434/v1</code>; Q4_K_M default. <span class="ok">confirmed (GitHub README + docs).</span> <a href="https://github.com/ollama/ollama" target="_blank" rel="noopener">github.com/ollama/ollama</a></li>
+        <li><strong>Local hardware / VRAM rules &amp; tok/s</strong> — composite of llama.cpp community benchmarks &amp; reputable secondary docs. <span class="ok">confirmed (community benchmarks).</span> <a href="https://github.com/ggml-org/llama.cpp/discussions" target="_blank" rel="noopener">llama.cpp discussions</a></li>
+        <li><strong>Irish electricity ≈ €0.35/kWh</strong>; desktop ~300 W / laptop ~35 W under load. <span class="flag">UNCONFIRMED — Irish primary pages 403; point estimate.</span> <a href="https://www.seai.ie/data-and-insights/seai-statistics/key-statistics/prices" target="_blank" rel="noopener">SEAI prices</a></li>
+        <li><strong>API-key security</strong> — keys must never live in client-side/public code; use a backend proxy. <span class="ok">confirmed.</span> <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener">Google</a> · <a href="https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html" target="_blank" rel="noopener">OWASP</a> · <a href="https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety" target="_blank" rel="noopener">OpenAI</a></li>
       </ol>
+      <p class="tiny">Full write-up with break-even math and the privacy/jurisdiction section: see <a href="./REPORT.md">REPORT.md</a>. Generated 2026-06-24. Prices change frequently — re-verify before relying on them.</p>
     </details>
   </div>
-
-  <footer>
-    Cost estimates only. Built for the repo owner (EU/Ireland, heavy parallel-agent Claude Code use). Verify all live prices before relying on them. Generated 2026-06-24.
-  </footer>
 </div>
 
 <script>
-(function () {
+(function(){
   "use strict";
 
   // ---------- Pricing constants (USD per 1,000,000 tokens) ----------
-  // From verified seed figures + primary-source citations (2026-06-24).
-  // batch: does the option support the -50% batch discount?
+  // inR/outR = input/output; crR = cache-read rate; cwR = cache-write rate; batch = supports -50%.
+  // unconf = price not verified against the primary source (see Sources). See 2026-06-24 figures.
   var MODELS = [
-    { id: "ds-flash",  name: "DeepSeek V4 Flash",   in: 0.14, out: 0.28, batch: false },
-    { id: "ds-pro",    name: "DeepSeek V4 Pro",     in: 1.74, out: 3.48, batch: false },
-    { id: "cl-haiku",  name: "Claude API Haiku 4.5", in: 1.00, out: 5.00, batch: true },
-    { id: "cl-sonnet", name: "Claude API Sonnet 4.6", in: 3.00, out: 15.00, batch: true },
-    { id: "cl-opus",   name: "Claude API Opus 4.8", in: 5.00, out: 25.00, batch: true },
-    { id: "gm-pro",    name: "Gemini 3 Pro",        in: 2.00, out: 12.00, batch: true },
-    { id: "gm-flash",  name: "Gemini 3.5 Flash",    in: 1.50, out: 9.00, batch: true },
-    { id: "gm-lite",   name: "Gemini 3.1 Flash-Lite", in: 0.25, out: 1.50, batch: true }
+    { id:"ds-flash",  name:"DeepSeek V4 Flash",  inR:0.14,  outR:0.28,  crR:0.0028,  cwR:0.14,  batch:false, unconf:true  },
+    { id:"ds-pro",    name:"DeepSeek V4 Pro",    inR:0.435, outR:0.87,  crR:0.003625,cwR:0.435, batch:false, unconf:true  },
+    { id:"cl-haiku",  name:"Claude Haiku 4.5",   inR:1.0,   outR:5.0,   crR:0.10,    cwR:1.25,  batch:true,  unconf:false },
+    { id:"cl-sonnet", name:"Claude Sonnet 4.6",  inR:3.0,   outR:15.0,  crR:0.30,    cwR:3.75,  batch:true,  unconf:false },
+    { id:"cl-opus",   name:"Claude Opus 4.8",    inR:5.0,   outR:25.0,  crR:0.50,    cwR:6.25,  batch:true,  unconf:false },
+    { id:"gm-pro",    name:"Gemini 3 Pro",       inR:2.0,   outR:12.0,  crR:0.20,    cwR:2.0,   batch:true,  unconf:true  },
+    { id:"gm-flash",  name:"Gemini 3.5 Flash",   inR:1.5,   outR:9.0,   crR:0.15,    cwR:1.5,   batch:true,  unconf:true  },
+    { id:"gm-lite",   name:"Gemini 3.1 Flash-Lite",inR:0.25,outR:1.5,   crR:0.025,   cwR:0.25,  batch:true,  unconf:true  },
+    { id:"oai-55",    name:"OpenAI GPT-5.5",     inR:5.0,   outR:30.0,  crR:0.50,    cwR:5.0,   batch:true,  unconf:true  },
+    { id:"oai-54",    name:"OpenAI GPT-5.4",     inR:2.5,   outR:15.0,  crR:0.25,    cwR:2.5,   batch:true,  unconf:true  },
+    { id:"oai-codex", name:"OpenAI GPT-5.3-codex",inR:1.75, outR:14.0,  crR:0.175,   cwR:1.75,  batch:true,  unconf:true  },
+    { id:"oai-nano",  name:"OpenAI GPT-5.4 nano",inR:0.20,  outR:1.25,  crR:0.02,    cwR:0.20,  batch:true,  unconf:true  },
+    { id:"qwen-flash",name:"Qwen-flash",         inR:0.05,  outR:0.40,  crR:0.005,   cwR:0.05,  batch:true,  unconf:true  },
+    { id:"qwen-plus", name:"Qwen-plus",          inR:0.40,  outR:1.20,  crR:0.04,    cwR:0.40,  batch:true,  unconf:true  },
+    { id:"qwen-max",  name:"Qwen-max",           inR:2.50,  outR:7.50,  crR:0.25,    cwR:2.50,  batch:true,  unconf:true  }
   ];
-
-  var CACHE_READ_MULT = 0.1;   // cache-read = 0.1x base input
-  var BATCH_MULT = 0.5;        // batch = -50%
-  var MAX5 = 100, MAX20 = 200; // flat reference plans
+  // Flat subscription reference lines ($/month). Not per-token.
+  var SUBS = [
+    { name:"ChatGPT Plus",  usd:20  },
+    { name:"Claude Max 5×", usd:100 },
+    { name:"ChatGPT Pro 5×",usd:100 },
+    { name:"Claude Max 20×",usd:200 },
+    { name:"ChatGPT Pro 20×",usd:200 }
+  ];
+  var BATCH = 0.5;
 
   // ---------- DOM ----------
-  var inRange = document.getElementById("inRange");
-  var outRange = document.getElementById("outRange");
-  var inNum = document.getElementById("inNum");
-  var outNum = document.getElementById("outNum");
-  var cacheRange = document.getElementById("cacheRange");
-  var cacheVal = document.getElementById("cacheVal");
-  var batchToggle = document.getElementById("batchToggle");
-  var chart = document.getElementById("chart");
-  var breakeven = document.getElementById("breakeven");
-  var paste = document.getElementById("paste");
-  var parseBtn = document.getElementById("parseBtn");
-  var parseMsg = document.getElementById("parseMsg");
+  var $ = function(id){ return document.getElementById(id); };
+  var inNum=$("inNum"), outNum=$("outNum"), cwNum=$("cwNum"), crNum=$("crNum");
+  var inRange=$("inRange"), outRange=$("outRange"), cwRange=$("cwRange"), crRange=$("crRange");
+  var batchToggle=$("batchToggle"), chart=$("chart"), subLines=$("subLines"), breakeven=$("breakeven");
+  var paste=$("paste"), parseBtn=$("parseBtn"), parseMsg=$("parseMsg"), headline=$("headline");
 
-  // ---------- Log-ish slider mapping ----------
-  // Slider 0..1000 maps to tokens 0 .. 2e9 on a log scale (0 stays 0).
-  var MAXTOK = 2000000000;
-  var MINTOK = 1000;          // smallest non-zero token value the slider can express
-  var SLIDER_MAX = 1000;
-  var LOG_MIN = Math.log(MINTOK);
-  var LOG_MAX = Math.log(MAXTOK);
+  // ---------- log-ish slider mapping (0..1000 -> 0..2e9) ----------
+  var SMAX=1000, TMAX=2e9, TMIN=1000, LMIN=Math.log(TMIN), LMAX=Math.log(TMAX);
+  function sliderToTok(s){ s=+s; if(s<=0)return 0; return Math.round(Math.exp(LMIN+(s/SMAX)*(LMAX-LMIN))); }
+  function tokToSlider(t){ t=+t; if(!t||t<=0)return 0; if(t<TMIN)return 1;
+    return Math.round(Math.max(0,Math.min(1,(Math.log(t)-LMIN)/(LMAX-LMIN)))*SMAX); }
 
-  function sliderToTokens(s) {
-    s = Number(s);
-    if (s <= 0) return 0;
-    var frac = s / SLIDER_MAX;
-    var v = Math.exp(LOG_MIN + frac * (LOG_MAX - LOG_MIN));
-    return Math.round(v);
-  }
-  function tokensToSlider(t) {
-    t = Number(t);
-    if (!t || t <= 0) return 0;
-    if (t < MINTOK) return Math.max(1, Math.round((t / MINTOK) * 1)); // tiny values near bottom
-    var frac = (Math.log(t) - LOG_MIN) / (LOG_MAX - LOG_MIN);
-    return Math.round(Math.max(0, Math.min(1, frac)) * SLIDER_MAX);
-  }
+  // ---------- formatting ----------
+  function usd(v){ if(v===0)return "$0.00"; if(v<0.01)return "$"+v.toFixed(4);
+    if(v<100)return "$"+v.toFixed(2); return "$"+v.toLocaleString("en-US",{maximumFractionDigits:0}); }
+  function tok(t){ if(t>=1e9)return (t/1e9).toFixed(t%1e9?2:0)+"B";
+    if(t>=1e6)return (t/1e6).toFixed(t%1e6?1:0)+"M"; if(t>=1e3)return (t/1e3).toFixed(0)+"K"; return ""+t; }
 
-  // ---------- Formatting ----------
-  function fmtUSD(v) {
-    if (v === 0) return "$0.00";
-    if (v < 0.01) return "$" + v.toFixed(4);
-    if (v < 100) return "$" + v.toFixed(2);
-    return "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  // ---------- cost math ----------
+  // Each token bucket billed at its own rate; batch -50% on in/out/cache-write for eligible models
+  // (cache-read is not batch-discounted). Maps directly to ccusage's four columns.
+  function cost(m, s){
+    var b = (s.batch && m.batch) ? BATCH : 1;
+    return (s.in/1e6)*m.inR*b + (s.out/1e6)*m.outR*b + (s.cw/1e6)*m.cwR*b + (s.cr/1e6)*m.crR;
   }
-  function fmtTokens(t) {
-    if (t >= 1e9) return (t / 1e9).toFixed(t % 1e9 === 0 ? 0 : 2) + "B";
-    if (t >= 1e6) return (t / 1e6).toFixed(t % 1e6 === 0 ? 0 : 1) + "M";
-    if (t >= 1e3) return (t / 1e3).toFixed(0) + "K";
-    return String(t);
-  }
+  function clamp(v){ v=Math.max(0,Math.floor(+v||0)); return Math.min(v,TMAX); }
+  function state(){ return { in:clamp(inNum.value), out:clamp(outNum.value),
+    cw:clamp(cwNum.value), cr:clamp(crNum.value), batch:batchToggle.checked }; }
 
-  // ---------- Cost math ----------
-  // cost = inTok/1e6 * inRate * (1 - cacheHit*(1-0.1))
-  //      + outTok/1e6 * outRate,  with batch -50% on applicable options.
-  function modelCost(m, inTok, outTok, cacheFrac, batchOn) {
-    var inMult = 1 - cacheFrac * (1 - CACHE_READ_MULT);
-    var inRate = m.in, outRate = m.out;
-    if (batchOn && m.batch) { inRate *= BATCH_MULT; outRate *= BATCH_MULT; }
-    var c = (inTok / 1e6) * inRate * inMult + (outTok / 1e6) * outRate;
-    return c;
+  // ---------- render ----------
+  function render(){
+    var s=state();
+    var rows=MODELS.map(function(m){ return {m:m, c:cost(m,s)}; }).sort(function(a,b){return a.c-b.c;});
+    var cheap=rows.length?rows[0].c:0;
+    var maxC=rows.reduce(function(a,r){return Math.max(a,r.c);},0);
+    var axisMax=Math.max(maxC,200,1)*1.04;
+
+    chart.innerHTML = rows.map(function(r){
+      var pct=axisMax>0?(r.c/axisMax)*100:0;
+      var isCheap=r.c===cheap;
+      return '<div class="bar-row"><div class="bar-name" title="'+r.m.name+'">'+r.m.name+
+        (r.m.unconf?' <span class="flag">?</span>':'')+'</div>'+
+        '<div class="bar-track"><div class="bar-fill'+(isCheap?' cheap':'')+'" style="width:'+pct.toFixed(1)+'%"></div></div>'+
+        '<div class="bar-cost">'+usd(r.c)+'/mo</div></div>';
+    }).join("");
+
+    // local marginal line (electricity only) for context
+    var loc = localElec(s.out);
+    subLines.innerHTML =
+      SUBS.map(function(x){ return '<div class="sub-line"><span>'+x.name+' <span class="tiny">(flat, rate-limited)</span></span><b>$'+x.usd+'/mo</b></div>'; }).join("") +
+      '<div class="sub-line"><span>Local / Ollama <span class="tiny">(marginal electricity only)</span></span><b>'+usd(loc)+'/mo + hardware</b></div>';
+
+    renderHeadline(s, rows);
+    renderBreakeven(s);
+    renderLocalCost(s);
   }
 
-  // ---------- State read ----------
-  function getState() {
-    var inTok = clampTok(inNum.value);
-    var outTok = clampTok(outNum.value);
-    var cacheFrac = Number(cacheRange.value) / 100;
-    return { inTok: inTok, outTok: outTok, cacheFrac: cacheFrac, batchOn: batchToggle.checked };
-  }
-  function clampTok(v) {
-    v = Number(v);
-    if (isNaN(v) || v < 0) v = 0;
-    if (v > MAXTOK) v = MAXTOK;
-    return Math.round(v);
-  }
-
-  // ---------- Render ----------
-  function render() {
-    var st = getState();
-    cacheVal.textContent = (st.cacheFrac * 100).toFixed(0);
-
-    var rows = MODELS.map(function (m) {
-      return { m: m, cost: modelCost(m, st.inTok, st.outTok, st.cacheFrac, st.batchOn) };
-    });
-    rows.sort(function (a, b) { return a.cost - b.cost; });
-
-    var cheapest = rows.length ? rows[0].cost : 0;
-
-    // Axis max: include the metered bars and the reference lines so markers fit.
-    var maxCost = rows.reduce(function (acc, r) { return Math.max(acc, r.cost); }, 0);
-    var axisMax = Math.max(maxCost, MAX20, 1) * 1.04;
-
-    // Build bars
-    var html = "";
-    rows.forEach(function (r) {
-      var pct = axisMax > 0 ? (r.cost / axisMax) * 100 : 0;
-      var isCheap = (r.cost === cheapest);
-      html += '<div class="bar-item">' +
-        '<div class="bar-label">' +
-          '<span class="bar-name">' + r.m.name +
-            (isCheap ? ' <span class="cheapest-tag">&bull; cheapest</span>' : '') +
-          '</span>' +
-          '<span class="bar-cost">' + fmtUSD(r.cost) + '/mo</span>' +
-        '</div>' +
-        '<div class="bar-track">' +
-          '<div class="bar-fill' + (isCheap ? ' cheapest' : '') + '" style="width:' + pct.toFixed(2) + '%"></div>' +
-        '</div>' +
-      '</div>';
-    });
-
-    // Reference markers (overlay positioned across the chart width)
-    var m5pct = (MAX5 / axisMax) * 100;
-    var m20pct = (MAX20 / axisMax) * 100;
-    html += '<div class="marker m5" style="left:' + m5pct.toFixed(2) + '%">' +
-              '<span class="mtag">Max 5× $100</span></div>';
-    html += '<div class="marker m20" style="left:' + m20pct.toFixed(2) + '%">' +
-              '<span class="mtag" style="top:16px;">Max 20× $200</span></div>';
-
-    chart.innerHTML = html;
-
-    renderBreakeven(st);
-  }
-
-  // ---------- Break-even ----------
-  // Find total tokens T (input+output) at current ratio where Claude API cost == $200.
-  // Per-token blended rate at the current ratio + cache + batch settings:
-  //   cost(T) = inFrac*T/1e6 * inRate * inMult + outFrac*T/1e6 * outRate
-  // Solve cost(T)=200 => T = 200 / (perTokenBlended/1e6)
-  function renderBreakeven(st) {
-    var total = st.inTok + st.outTok;
-    var inFrac, outFrac;
-    if (total > 0) {
-      inFrac = st.inTok / total;
-      outFrac = st.outTok / total;
+  function renderHeadline(s, rows){
+    var total = s.in+s.out+s.cw+s.cr;
+    var opus = cost(MODELS.filter(function(m){return m.id==="cl-opus";})[0], s);
+    if(LOADED.usage && LOADED.usage.reportedCostUSD>0){
+      var api = LOADED.usage.reportedCostUSD;
+      var save20 = api-200, save5 = api-100;
+      headline.className="headline";
+      headline.innerHTML = '<strong>Your '+ (LOADED.usage.month||'month') +': '+tok(total)+' tokens ≈ '+usd(api)+
+        ' at Claude API rates</strong><br>On a flat plan you’d pay $100 (Max 5×) or $200 (Max 20×) — '+
+        'so the subscription saves you <span class="save">'+usd(Math.max(0,save5))+'/mo</span> vs API (5×) or '+
+        '<span class="save">'+usd(Math.max(0,save20))+'/mo</span> (20×). '+
+        '<span class="tiny">(ccusage cost = API-equivalent, not what you paid on a plan.)</span>';
     } else {
-      // default to a typical mix if no tokens entered yet
-      inFrac = 0.8; outFrac = 0.2;
+      headline.className="headline neutral";
+      headline.innerHTML = '<strong>'+tok(total)+' tokens/mo</strong> — cheapest metered: <b>'+rows[0].m.name+
+        '</b> at '+usd(rows[0].c)+'/mo. Same volume on Claude Opus API ≈ '+usd(opus)+
+        '/mo. Paste your <code>ccusage</code> output (Calculator tab) for your real savings vs a flat plan.';
     }
-    var inMult = 1 - st.cacheFrac * (1 - CACHE_READ_MULT);
-
-    var targets = [
-      MODELS.filter(function (m) { return m.id === "cl-sonnet"; })[0],
-      MODELS.filter(function (m) { return m.id === "cl-opus"; })[0]
-    ];
-
-    var html = "";
-    targets.forEach(function (m) {
-      var inRate = m.in, outRate = m.out;
-      if (st.batchOn && m.batch) { inRate *= BATCH_MULT; outRate *= BATCH_MULT; }
-      // blended $ per 1 token
-      var perTok = (inFrac * inRate * inMult + outFrac * outRate) / 1e6;
-      var T = perTok > 0 ? (MAX20 / perTok) : Infinity;
-
-      var crossText;
-      if (!isFinite(T)) {
-        crossText = "n/a";
-      } else {
-        crossText = fmtTokens(Math.round(T)) + " tokens/mo";
-      }
-
-      // Where is the user now relative to break-even?
-      var pos = "";
-      if (total > 0 && isFinite(T)) {
-        if (total < T) {
-          pos = "You are <strong>below</strong> it now — metered API is cheaper than $200 flat.";
-        } else {
-          pos = "You are <strong>above</strong> it now — the $200 Max 20× flat plan wins (interactive use only).";
-        }
-      }
-
-      html += '<div class="be-row">' +
-        '<span class="be-model">' + m.name + '</span> crosses $200/mo at ' +
-        '<span class="be-num">' + crossText + '</span>' +
-        (st.batchOn && m.batch ? ' <span class="acc">(batch −50% applied)</span>' : '') +
-        (st.cacheFrac > 0 ? ' <span class="acc">(at ' + (st.cacheFrac*100).toFixed(0) + '% cache hit)</span>' : '') +
-        (pos ? '<div class="hint" style="margin-top:4px;">' + pos + '</div>' : '') +
-      '</div>';
-    });
-
-    html += '<div class="hint" style="margin-top:8px;">Below the crossover, pay-per-token API is cheaper; above it the flat plan wins — but only for interactive use. Programmatic/headless agent runs (since 15 Jun 2026) bill at API rates regardless, so for parallel agentic loops the API column is your real cost.</div>';
-
-    breakeven.innerHTML = html;
   }
 
-  // ---------- Sync slider <-> number ----------
-  function bindPair(rangeEl, numEl) {
-    rangeEl.addEventListener("input", function () {
-      numEl.value = sliderToTokens(rangeEl.value);
-      render();
+  // break-even: total tokens T at current ratio where Claude API cost == $200
+  function renderBreakeven(s){
+    var tot=s.in+s.out+s.cw+s.cr;
+    var html="";
+    [["cl-sonnet","Sonnet 4.6"],["cl-opus","Opus 4.8"]].forEach(function(p){
+      var m=MODELS.filter(function(x){return x.id===p[0];})[0];
+      var b=(s.batch&&m.batch)?BATCH:1;
+      // per-token blended rate at current mix
+      var perTok = tot>0
+        ? ((s.in*m.inR*b + s.out*m.outR*b + s.cw*m.cwR*b + s.cr*m.crR)/tot)/1e6
+        : (0.8*m.inR+0.2*m.outR)/1e6; // fall back to 80/20 if no volume entered
+      var be = perTok>0 ? 200/perTok : 0;
+      var now = cost(m,s);
+      var verdict = now>200
+        ? '<span class="ok">you’re above it → Max 20× ($200) is cheaper than this API</span>'
+        : '<span>you’re below it → metered API is cheaper than $200 flat</span>';
+      html += '<div class="be-row"><b>'+p[1]+'</b>: crossover ≈ <b>'+tok(Math.round(be))+
+        ' tokens/mo</b> at your current mix. Your usage = '+usd(now)+'/mo → '+verdict+'.</div>';
     });
-    numEl.addEventListener("input", function () {
-      var t = clampTok(numEl.value);
-      rangeEl.value = tokensToSlider(t);
-      render();
-    });
-    numEl.addEventListener("blur", function () {
-      numEl.value = clampTok(numEl.value);
-      rangeEl.value = tokensToSlider(Number(numEl.value));
-      render();
-    });
+    html += '<p class="hint">Crossover halves for Max 5× ($100). Interactive use only — headless/programmatic Claude (since 15 Jun 2026) bills at API rates from a separate pool regardless.</p>';
+    breakeven.innerHTML=html;
   }
-  bindPair(inRange, inNum);
-  bindPair(outRange, outNum);
-  cacheRange.addEventListener("input", render);
+
+  // ---------- local electricity ----------
+  function localElec(outTokens){
+    var tps=+($("tps").value)||60, w=+($("watts").value)||300, price=+($("kwh").value)||0;
+    if(outTokens<=0||tps<=0) return 0;
+    var hours = outTokens/tps/3600;
+    return hours * (w/1000) * price; // $/mo of electricity for the output volume
+  }
+  function renderLocalCost(s){
+    var elec=localElec(s.out);
+    var amort=+($("hwAmort").value)||0;
+    var box=$("localCost");
+    box.innerHTML = '<strong>Local run cost for '+tok(s.out)+' output tokens/mo:</strong> ≈ '+usd(elec)+
+      ' electricity'+(amort>0?' + '+usd(amort)+' amortized hardware = <b>'+usd(elec+amort)+'/mo</b>':'')+
+      '. <span class="tiny">Marginal token billing is $0; this is the real-world floor. Generation only — agent prefill pushes it up.</span>';
+  }
+
+  // ---------- inputs ----------
+  function bindPair(range, num){
+    range.addEventListener("input", function(){ num.value=sliderToTok(range.value); render(); });
+    num.addEventListener("input", function(){ render(); });
+    num.addEventListener("blur", function(){ num.value=clamp(num.value); range.value=tokToSlider(+num.value); render(); });
+  }
+  bindPair(inRange,inNum); bindPair(outRange,outNum); bindPair(cwRange,cwNum); bindPair(crRange,crNum);
   batchToggle.addEventListener("change", render);
+  ["tps","watts","kwh","hwAmort"].forEach(function(id){ $(id).addEventListener("input", function(){ var s=state(); renderLocalCost(s); render(); }); });
 
-  // ---------- /usage paste parser ----------
-  // Tries to find input and output token counts. Handles 18,400,000 / 4.2M / 250k / 1.1B.
-  function parseTokenValue(raw) {
-    if (!raw) return null;
-    raw = raw.trim().replace(/,/g, "");
-    var mult = 1;
-    var suffix = raw.slice(-1).toLowerCase();
-    if (suffix === "k") { mult = 1e3; raw = raw.slice(0, -1); }
-    else if (suffix === "m") { mult = 1e6; raw = raw.slice(0, -1); }
-    else if (suffix === "b") { mult = 1e9; raw = raw.slice(0, -1); }
-    var n = parseFloat(raw);
-    if (isNaN(n)) return null;
-    return Math.round(n * mult);
+  // ---------- ccusage paste parser ----------
+  function parseNums(text){
+    // pull all integers with optional comma grouping
+    var nums=(text.match(/[0-9][0-9,]{2,}/g)||[]).map(function(x){return +x.replace(/,/g,"");}).filter(function(n){return n>0;});
+    var costM = text.match(/\$\s*([0-9][0-9,]*\.?[0-9]*)/);
+    return {nums:nums, cost:costM?+costM[1].replace(/,/g,""):null};
   }
-
-  function tryParse(text) {
-    var res = { input: null, output: null };
-    var lines = text.split(/\n|;|\|/);
-    // line-based: look for label + number
-    lines.forEach(function (line) {
-      var lo = line.toLowerCase();
-      var num = line.match(/([\d.,]+\s*[kmb]?)\s*(?:tokens?)?/i);
-      var val = num ? parseTokenValue(num[1]) : null;
-      if (val === null) return;
-      if (res.input === null && /\b(input|in|prompt|sent|cache)\b/.test(lo)) res.input = val;
-      else if (res.output === null && /\b(output|out|completion|generat|response|received)\b/.test(lo)) res.output = val;
-    });
-    // fallback: "input ... 123" anywhere in the text
-    if (res.input === null) {
-      var mi = text.match(/(?:input|prompt|sent)[^0-9]*([\d.,]+\s*[kmb]?)/i);
-      if (mi) res.input = parseTokenValue(mi[1]);
+  parseBtn.addEventListener("click", function(){
+    var p=parseNums(paste.value);
+    // ccusage monthly column order: Input, Output, CacheCreate, CacheRead, Total. Find the 5-run.
+    var n=p.nums;
+    if(n.length>=4){
+      // prefer the largest 5 trailing numbers (token columns dwarf the date digits)
+      var big=n.filter(function(x){return x>=1000;});
+      if(big.length>=4){
+        // total is usually the max; cache-read the next; map by typical order if we have >=5
+        var seq = big.slice(-5); // last 5 big numbers ≈ in,out,cw,cr,total
+        if(seq.length===5){
+          inNum.value=seq[0]; outNum.value=seq[1]; cwNum.value=seq[2]; crNum.value=seq[3];
+        } else {
+          // fall back: assume first four are in,out,cw,cr
+          inNum.value=big[0]; outNum.value=big[1]; cwNum.value=big[2]; crNum.value=big[3];
+        }
+        [["inRange",inNum],["outRange",outNum],["cwRange",cwNum],["crRange",crNum]]
+          .forEach(function(x){ $(x[0]).value=tokToSlider(+x[1].value); });
+        if(p.cost){ LOADED.usage={month:(paste.value.match(/20\d\d-\d\d/)||[null])[0], reportedCostUSD:p.cost}; }
+        parseMsg.className="hint ok"; parseMsg.textContent="Filled from paste"+(p.cost?(" · cost $"+p.cost):"")+".";
+        render(); return;
+      }
     }
-    if (res.output === null) {
-      var mo = text.match(/(?:output|completion|generat|response)[^0-9]*([\d.,]+\s*[kmb]?)/i);
-      if (mo) res.output = parseTokenValue(mo[1]);
-    }
-    return res;
-  }
-
-  parseBtn.addEventListener("click", function () {
-    var r = tryParse(paste.value || "");
-    var msgs = [];
-    if (r.input !== null) {
-      inNum.value = clampTok(r.input);
-      inRange.value = tokensToSlider(Number(inNum.value));
-      msgs.push("input " + fmtTokens(Number(inNum.value)));
-    }
-    if (r.output !== null) {
-      outNum.value = clampTok(r.output);
-      outRange.value = tokensToSlider(Number(outNum.value));
-      msgs.push("output " + fmtTokens(Number(outNum.value)));
-    }
-    if (msgs.length) {
-      parseMsg.style.color = "var(--good)";
-      parseMsg.textContent = "Filled: " + msgs.join(", ") + ".";
-      render();
-    } else {
-      parseMsg.style.color = "var(--warn)";
-      parseMsg.textContent = "Couldn't find input/output token counts. Try lines like \"Input tokens: 18,400,000\".";
-    }
+    parseMsg.className="hint danger"; parseMsg.textContent="Couldn’t find the token columns — paste the full monthly row.";
   });
 
-  // ---------- Init ----------
-  // sync sliders to the default number values
-  inRange.value = tokensToSlider(Number(inNum.value));
-  outRange.value = tokensToSlider(Number(outNum.value));
+  // ---------- tabs ----------
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+    t.addEventListener("click", function(){
+      document.querySelectorAll(".tab").forEach(function(x){ x.setAttribute("aria-selected","false"); });
+      document.querySelectorAll(".pane").forEach(function(x){ x.classList.remove("active"); });
+      t.setAttribute("aria-selected","true");
+      $(t.dataset.pane).classList.add("active");
+    });
+  });
+
+  // ---------- optional local personalization (never published) ----------
+  var LOADED = { usage:null, profile:null };
+  function vramVerdict(gb){
+    if(gb==null) return "VRAM unknown — run <code>nvidia-smi</code> (NVIDIA) or check About This Mac (unified memory), then compare to the table above.";
+    if(gb<6)  return "≤7–8B Q4 only, likely CPU-bound and slow. Good for light tasks, not agentic coding.";
+    if(gb<8)  return "Runs 7–8B Q4 (e.g. Qwen3-Coder 7B). Usable for small local jobs.";
+    if(gb<12) return "7–8B Q4 comfortably; 13–14B is tight.";
+    if(gb<16) return "13–14B Q4 comfortably.";
+    if(gb<24) return "13–14B Q8, or ~22–32B Q4 (tight).";
+    if(gb<48) return "32–34B Q4 well (incl. Qwen3.6-27B) — the sweet spot for serious local coding.";
+    return "70B Q4 — flagship-adjacent local quality.";
+  }
+  function applyProfile(p){
+    if(!p) return;
+    $("profileBadge").textContent = "· personalized from profile.local.json";
+    // Explainer aside
+    var e=$("explainPersonal"); e.style.display="block";
+    e.innerHTML="<h2>For your setup</h2><p>"+
+      (p.role?("Role: <b>"+esc(p.role)+"</b>. "):"")+
+      (p.location?("Location: <b>"+esc(p.location)+"</b>"+(/dublin|ireland|eu|europe/i.test(p.location)?" — EU data-jurisdiction rules apply, so prefer Western-hosted/local for sensitive work, and Gemini's free tier (trains on data) is a poor fit.":"")+" "):"")+
+      (p.goals&&p.goals.length?("Your stated goals: "+p.goals.map(esc).join("; ")+"."):"")+"</p>";
+    // Local devices verdicts
+    if(p.devices&&p.devices.length){
+      var l=$("localPersonal"); l.style.display="block";
+      l.innerHTML="<h2>Your devices — what each can realistically run</h2>"+
+        p.devices.map(function(d){
+          return '<div class="device"><b>'+esc(d.name||"device")+'</b> <span class="tiny">'+esc(d.type||"")+
+            (d.vramGB!=null?(" · "+d.vramGB+" GB"):"")+'</span><br>'+vramVerdict(d.vramGB)+
+            (d.notes?'<br><span class="tiny">'+esc(d.notes)+'</span>':'')+'</div>';
+        }).join("")+
+        '<p class="tiny">NAS / Time-Capsule-type devices are storage only — they can hold model files but cannot run inference.</p>';
+    }
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function applyUsage(u){
+    if(!u) return;
+    if(u.inputTokens!=null) inNum.value=clamp(u.inputTokens);
+    if(u.outputTokens!=null) outNum.value=clamp(u.outputTokens);
+    if(u.cacheWriteTokens!=null) cwNum.value=clamp(u.cacheWriteTokens);
+    if(u.cacheReadTokens!=null) crNum.value=clamp(u.cacheReadTokens);
+    [["inRange",inNum],["outRange",outNum],["cwRange",cwNum],["crRange",crNum]]
+      .forEach(function(x){ $(x[0]).value=tokToSlider(+x[1].value); });
+    LOADED.usage=u;
+  }
+  function tryLoad(file, cb){
+    fetch(file,{cache:"no-store"}).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(j){ cb(j); render(); }).catch(function(){ /* absent → silent generic */ });
+  }
+
+  // init
+  ["inRange","outRange","cwRange","crRange"].forEach(function(){});
+  inRange.value=tokToSlider(+inNum.value); outRange.value=tokToSlider(+outNum.value);
+  cwRange.value=tokToSlider(+cwNum.value); crRange.value=tokToSlider(+crNum.value);
   render();
+  tryLoad("./usage.json", function(j){ applyUsage(j); });
+  tryLoad("./profile.local.json", function(j){ LOADED.profile=j; applyProfile(j); });
 })();
 </script>
 </body>

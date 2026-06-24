@@ -1,0 +1,12 @@
+# Local-only, never-published personal files.
+# These are read at runtime by index.html (optional fetch) and written by sync-usage.ps1.
+# They may contain personal usage figures, hardware inventory, role/location, etc.,
+# so they are git-ignored to keep the published page generic and free of personal data.
+usage.json
+profile.local.json
+
+# Any local-only JS overrides (personal config dropped in beside the page).
+*.local.js
+
+# The example/schema file is committed on purpose (generic placeholders only) — do NOT ignore it.
+!profile.local.example.json
