@@ -199,7 +199,8 @@
       <strong>Claude Max is a flat, interactive-only plan — not an API tier.</strong> Pro $20 / Max 5× $100 / Max 20× $200 per month buy rate-limited interactive access (roughly ~225 messages per rolling 5h on 5×, ~900 on 20×; the 5-hour limit was doubled on 6 May 2026). Anthropic does <strong>not</strong> publish exact token quotas for these plans, so this tool does not invent any — the $100/$200 lines are the flat prices, shown only as reference markers. <strong>Change (15 Jun 2026):</strong> programmatic / non-interactive usage (Agent SDK, <code>claude -p</code>, GitHub Actions, scheduled/headless runs) draws from a <em>separate</em> monthly credit pool billed at API rates — $20 (Pro) / $100 (Max 5×) / $200 (Max 20×). Interactive terminal use is unaffected. If you run parallel agentic loops headlessly, you are effectively on metered API pricing, not the flat plan.
     </div>
     <p class="note"><strong>Neutrality &amp; accuracy.</strong> This calculator favours no vendor. It computes cost only; data jurisdiction, privacy, model quality, tool-use reliability, and rate limits are not priced in and matter for your decision. Prices change frequently and some figures here come from search-snippet fallbacks rather than the official pages — <strong>verify live prices</strong> before committing spend.</p>
-    <p class="note">DeepSeek cost note: V4 Pro's shown price ($1.74/$3.48 standard) reflects the seed figures. A periodic ~75% promo brings it to ~$0.435/$0.87; fallback sources suggest the discounted rate may have become the standard price after 2026-05-31, but this could not be confirmed against the official page. V4 Flash cache-hit input is ~$0.0028/1M (a ~98% discount). Legacy <code>deepseek-chat</code> / <code>deepseek-reasoner</code> deprecate 2026-07-24 and route to V4 Flash.</p>
+    <p class="note">DeepSeek cost note: V4 Pro is shown at <strong>$0.435/$0.87</strong> — the original $1.74/$3.48 list price minus the 75% reduction that, per multiple corroborating sources, <strong>became permanent after 2026-05-31</strong> (DeepSeek's own page returned HTTP 403, so this is corroborated across aggregators rather than read off the official page). V4 Flash cache-hit input is ~$0.0028/1M (a ~98% discount), <em>steeper</em> than the uniform ~90% cache credit this tool applies — so raising the cache slider <em>under</em>-credits DeepSeek slightly. Legacy <code>deepseek-chat</code> / <code>deepseek-reasoner</code> deprecate 2026-07-24 and route to V4 Flash.</p>
+    <p class="note"><strong>Two modelling simplifications:</strong> (1) cache-read is treated as a uniform 0.1× of input for every option, whereas DeepSeek's is steeper (~0.02×); (2) Gemini 3 Pro's price <strong>doubles to $4/$18 above 200K-token prompts</strong> — this tool uses the ≤200K rate, so very large-context Gemini Pro runs cost more than shown.</p>
   </div>
 
   <!-- ============ ROUTING ============ -->
@@ -229,7 +230,7 @@ $env:CLAUDE_CODE_EFFORT_LEVEL="max"</code></pre>
           <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noopener">platform.claude.com/docs/en/about-claude/pricing</a> · accessed 2026-06-24
         </li>
         <li>
-          <strong>DeepSeek API pricing</strong> — V4 Flash $0.14/$0.28 (cache-hit input ~$0.0028); V4 Pro $1.74/$3.48 standard (~75% promo ⇒ ~$0.435/$0.87). <span class="flag acc">UNCONFIRMED — official page returned HTTP 403; figures from WebSearch fallback snippets (official-page snippet + aggregators).</span><br>
+          <strong>DeepSeek API pricing</strong> — V4 Flash $0.14/$0.28 (cache-hit input ~$0.0028); V4 Pro $0.435/$0.87 (original $1.74/$3.48 list, less the 75% cut made permanent after 2026-05-31). <span class="flag acc">Official page returned HTTP 403; figures corroborated across multiple aggregators (pricepertoken, CloudZero, DeepInfra, costgoat), not read off the official page.</span><br>
           <a href="https://api-docs.deepseek.com/quick_start/pricing" target="_blank" rel="noopener">api-docs.deepseek.com/quick_start/pricing</a> · accessed 2026-06-24
         </li>
         <li>
@@ -270,7 +271,7 @@ $env:CLAUDE_CODE_EFFORT_LEVEL="max"</code></pre>
   // batch: does the option support the -50% batch discount?
   var MODELS = [
     { id: "ds-flash",  name: "DeepSeek V4 Flash",   in: 0.14, out: 0.28, batch: false },
-    { id: "ds-pro",    name: "DeepSeek V4 Pro",     in: 1.74, out: 3.48, batch: false },
+    { id: "ds-pro",    name: "DeepSeek V4 Pro",     in: 0.435, out: 0.87, batch: false },
     { id: "cl-haiku",  name: "Claude API Haiku 4.5", in: 1.00, out: 5.00, batch: true },
     { id: "cl-sonnet", name: "Claude API Sonnet 4.6", in: 3.00, out: 15.00, batch: true },
     { id: "cl-opus",   name: "Claude API Opus 4.8", in: 5.00, out: 25.00, batch: true },

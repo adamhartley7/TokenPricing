@@ -9,7 +9,8 @@ Neutral, fully-sourced cost comparison of LLM access options for a heavy Claude 
   (with cache-hit % and batch toggles) and see live monthly $ for each metered option, with the
   flat Max plans as reference lines plus a break-even readout.
 
-To view the calculator live, enable **GitHub Pages** for this repo (Settings → Pages → deploy from
-`main`, root), then open the published URL. Or open `index.html` locally in any browser.
+**Live:** https://adamhartley7.github.io/TokenPricing/ — served via GitHub Pages from the
+`claude/token-app-deepseek-cost-analysis-fvsql5` branch (root). Or open `index.html` locally in any
+browser. (When you merge this branch into `main`, repoint Pages at `main` for a tidier setup.)
 
 > Cost estimates only; not financial advice. Prices change — verify live before committing spend.

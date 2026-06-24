@@ -19,7 +19,7 @@ All token figures are USD **per 1M tokens (MTok)**, shown as **input / output**.
 | Offering | Model / tier | Input / Output per 1M | Notes | Source |
 |---|---|---|---|---|
 | **DeepSeek API** (metered) | V4 Flash | **$0.14 / $0.28** | Cache-hit input ~$0.0028/1M (~98% off). 1M context. **Unconfirmed** (official page 403; aggregator fallback). | [docs][s-ds-price] (2026-06-24) |
-| **DeepSeek API** (metered) | V4 Pro | **$0.435 / $0.87** | Post-promo "standard" rate after 2026-05-31; cache-hit input ~$0.003625/1M. **Unconfirmed** whether now permanent. Pre-promo was ~$1.74 / $3.48. | [docs][s-ds-price] (2026-06-24) |
+| **DeepSeek API** (metered) | V4 Pro | **$0.435 / $0.87** | Original $1.74/$3.48 list less the 75% cut, which multiple sources say became **permanent after 2026-05-31**; cache-hit input ~$0.003625/1M. Corroborated across aggregators (official page 403). | [docs][s-ds-price] (2026-06-24) |
 | **Claude API** (metered) | Opus 4.8 | **$5 / $25** | Fast mode (Opus only) $10 / $50. Batch -50%. Cache read 0.1x input ($0.50); 5m cache write 1.25x ($6.25). | [pricing][s-claude-price] (2026-06-24) |
 | **Claude API** (metered) | Sonnet 4.6 | **$3 / $15** | Batch -50% ($1.50 / $7.50). Cache read $0.30. | [pricing][s-claude-price] (2026-06-24) |
 | **Claude API** (metered) | Haiku 4.5 | **$1 / $5** | Batch -50% ($0.50 / $2.50). Cache read $0.10. | [pricing][s-claude-price] (2026-06-24) |
