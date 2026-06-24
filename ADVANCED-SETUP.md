@@ -1,0 +1,139 @@
+# Advanced setup — offload to GLM/DeepSeek, add memory + search, fork a chat UI
+
+This is the "configure, don't build from scratch" guide. It wires existing, verified tools so you get ~90%
+of the dream — Opus plans, cheaper models do the bulk, with your own portable memory + web search — for
+about **$18/mo + a tiny bit of Opus planning cost**.
+
+> **Privacy first.** Your Claude export, the importer's output (`_memory_import/`), and any API keys are
+> personal and are **git-ignored — never push them**. Hosted GLM / DeepSeek / mem0-cloud store data
+> off-device (GLM & DeepSeek host in the PRC). For sensitive code, use the **local** memory backend and a
+> Western-hosted or self-hosted model.
+
+---
+
+## 1. Web search for a swapped-in model (2 minutes)
+
+Claude's built-in web search does **not** carry over when you route to GLM/DeepSeek. Add one search MCP
+server instead (pick **one** — installing several makes the agent choose wrong):
+
+```powershell
+claude mcp add tavily-search npx -y tavily-mcp@latest
+# then set your Tavily key (free tier: 1,000 searches/month) per the prompt
+claude mcp list        # confirm it's connected
+```
+
+Alternatives: Brave Search, Exa. Manage with `claude mcp remove <name>`; scope with `--scope project`.
+
+---
+
+## 2. Persistent memory for any model (two paths — pick one)
+
+Memory isn't Anthropic's to lend to GLM; you run your **own** memory layer via MCP, and every model
+(GLM, DeepSeek, Claude) uses it.
+
+### Path A — Cloud mem0 (easiest, ~5 min; data leaves your machine)
+```powershell
+npx mcp-add --name mem0-mcp --type http --url "https://mcp.mem0.ai/mcp" --clients "claude code"
+```
+Fast, but your memories live on mem0's servers. Fine for non-sensitive use.
+
+### Path B — Local / self-hosted (private, EU-safe; more setup)
+Two good options:
+- **[`thedotmack/claude-mem`](https://github.com/thedotmack/claude-mem)** — captures every Claude Code
+  session automatically and injects relevant context next time. This is also your **live `~/.claude`
+  watcher** (item 4) — it runs on hooks, no separate watcher needed.
+- **Self-hosted mem0** — run mem0 against a local vector store (Qdrant) so nothing leaves your device; see
+  [`mem0-mcp-selfhosted`](https://mcpservers.org/servers/elvismdev/mem0-mcp-selfhosted). Heaviest, most private.
+
+Other options worth knowing: [`nicolasbatistoni/claude-rag-memory`](https://github.com/nicolasbatistoni/claude-rag-memory),
+[`zilliztech/memsearch`](https://github.com/zilliztech/memsearch), [`coleam00/claude-memory-compiler`](https://github.com/coleam00/claude-memory-compiler).
+
+---
+
+## 3. Import your Claude history (one-time)
+
+Your export (Settings → Privacy → Export data) holds 182 conversations + your memory, far too big to "stuff"
+into a context window — so we index it for retrieval (RAG). Turn it into clean Markdown:
+
+```powershell
+python import-claude-export.py --zip "C:\path\to\export.zip" --dry-run   # check the counts
+python import-claude-export.py --zip "C:\path\to\export.zip"             # writes ./_memory_import/
+```
+
+Then ingest `_memory_import/` into whichever memory store you chose in step 2 (mem0 / claude-mem / LibreChat
+RAG). `_memory_import/` is git-ignored.
+
+**Why RAG, not stuffing:** GLM 5.2's 1M-token window is big but not infinite, and cramming everything in
+degrades answer quality ("lost in the middle") and costs money + latency on *every* call. RAG pulls only the
+relevant slice per task.
+
+---
+
+## 4. Live capture of new sessions
+
+If you used **claude-mem** (Path B) it already captures every new Claude Code session via hooks — that's your
+"constantly up-to-date" memory, no extra work. (mem0's Claude Code plugin captures at lifecycle points too.)
+
+---
+
+## 5. Orchestrator-worker: Opus plans, cheap models do the bulk
+
+The subagents in `.claude/agents/` are pre-made: `bulk-implementer`, `researcher`, `test-writer` (workers) and
+`final-reviewer` (stays on Opus — the quality gate). Your main session runs Opus for the hard plan + final
+review; the workers do the volume.
+
+### Option A — native, still Claude (simplest)
+Workers run on Sonnet/Haiku (set in each agent's `model:` field, or globally with
+`CLAUDE_CODE_SUBAGENT_MODEL`). Reliable, but still draws your Claude plan. Documented to cut cost ~40% vs
+all-Opus.
+
+### Option B — GLM/DeepSeek workers, OFF your Claude weekly limit
+Run Claude Code under [`claude-code-router`](https://github.com/musistudio/claude-code-router) and route the
+worker/background model to GLM 5.2:
+```powershell
+npm install -g @musistudio/claude-code-router
+# copy this repo's claude-code-router/config.example.json to ~/.claude-code-router/config.json, add keys
+ccr code
+```
+The example config keeps `default`/`think` on Opus and sends `background`/`longContext` to GLM. Documented to
+cut token cost ~5–10× with little quality loss. **Verify the exact GLM model id** at
+<https://docs.z.ai/guides/llm/glm-5.2> before relying on the placeholder in the config.
+
+---
+
+## 6. Quick single-session offload (no router)
+
+For ad-hoc "just don't touch my Claude limit" work, use the launchers in this repo — they point one terminal
+window at a cheaper model and pass through any `claude` flags:
+```powershell
+./glm.ps1        # GLM 5.2 (Z.ai)  — see glm.ps1
+./deepseek.ps1   # DeepSeek V4 Pro — see deepseek.ps1
+```
+Close the window to return to normal Claude.
+
+---
+
+## 7. Your personalized chat/Cowork app — fork LibreChat
+
+You can't make Anthropic's Cowork run GLM, but you can run your **own** modifiable replica.
+[**LibreChat**](https://github.com/danny-avila/LibreChat) is the base: open-source, self-hostable, supports
+custom **Anthropic-compatible** endpoints, MCP, RAG, and Presets.
+
+1. Clone & run it (Docker quickstart in its README).
+2. Add GLM as a **custom endpoint**: `baseURL: https://api.z.ai/api/anthropic`, your Z.ai key,
+   `provider: "anthropic"`. (Add DeepSeek/Qwen the same way for model-switching.)
+3. Use **Presets** for the controls you wanted: **max tokens** = answer length; **system prompt** = answer
+   form/format; the model's **thinking/reasoning** parameter = "time spent thinking".
+4. Enable **MCP** so the same search + memory servers from steps 1–2 plug in, and turn on **RAG** over
+   `_memory_import/` so it knows your history.
+
+This is the "do whatever I want with it" app — fork it and customize freely. It's days, not the multi-week
+greenfield build.
+
+---
+
+## Reality check / honest limits
+- GLM & DeepSeek are a notch below Opus on the hardest agentic work, and tool-use via a router is slightly
+  less reliable than native Claude — keep `final-reviewer` on Opus and verify on real tasks.
+- Many non-Claude prices are aggregator-sourced (official pages blocked the fetch) — re-verify before spending.
+- This is guidance, not financial advice.

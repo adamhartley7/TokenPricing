@@ -21,9 +21,17 @@ metered API vs flat subscription vs self-hosted.
   Claude Code↔DeepSeek routing, privacy/jurisdiction, OpenAI sub-vs-API, Qwen, and local agents. Every
   figure cited with an access date; unconfirmed figures flagged.
 - **`sync-usage.ps1`** — local Windows script: runs `ccusage` and writes `usage.json` (local only).
-- **`glm.ps1`** — local Windows launcher: opens a Claude Code session routed to GLM 5.2 (Z.ai)
-  so that work runs on your GLM Coding Plan instead of your Claude weekly limit. The Z.ai key it
-  caches (`.glm-key`) is git-ignored. Run `./glm.ps1`; close the window to return to normal Claude.
+- **`glm.ps1`** / **`deepseek.ps1`** — local Windows launchers: open a Claude Code session routed to
+  GLM 5.2 (Z.ai) or DeepSeek V4 Pro so that work runs off your Claude weekly limit. Cached keys
+  (`.glm-key` / `.deepseek-key`) are git-ignored. Run `./glm.ps1`; close the window to return to Claude.
+- **[ADVANCED-SETUP.md](./ADVANCED-SETUP.md)** — offload to GLM/DeepSeek, add a search + memory MCP server,
+  import your Claude history for RAG, run the Opus-plans/cheap-workers orchestrator pattern, and fork
+  LibreChat into your own modifiable chat/Cowork-style app.
+- **`.claude/agents/`** — ready-made orchestrator-worker subagents (`bulk-implementer`, `researcher`,
+  `test-writer` workers + an Opus `final-reviewer` quality gate).
+- **`claude-code-router/config.example.json`** — route worker/background traffic to GLM, keep Opus as orchestrator.
+- **`import-claude-export.py`** — turn your Anthropic data-export zip into clean Markdown for a memory/RAG store
+  (local-only output; git-ignored).
 - **`profile.local.example.json`** — schema for optional personalization.
 
 ## Personalize it (local only, never published)

@@ -11,5 +11,14 @@ profile.local.json
 # GLM/Z.ai API key cached locally by glm.ps1 — a secret, never commit it.
 .glm-key
 
+# DeepSeek API key cached locally by deepseek.ps1 — a secret, never commit it.
+.deepseek-key
+
+# Personal: Anthropic data export + the importer's output + any local vector store.
+*.zip
+_memory_import/
+.vectorstore/
+qdrant_storage/
+
 # The example/schema file is committed on purpose (generic placeholders only) — do NOT ignore it.
 !profile.local.example.json
