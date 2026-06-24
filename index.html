@@ -132,6 +132,7 @@
           <input type="range" id="crRange" min="0" max="1000" value="0">
         </div>
       </div>
+      <p class="hint" id="cachePct" style="margin:2px 0 10px"></p>
       <div class="inline" style="margin-top:4px">
         <label class="switch"><input type="checkbox" id="batchToggle"> Batch jobs (−50% where supported)</label>
       </div>
@@ -299,10 +300,13 @@ claude</code></pre>
     { id:"oai-nano",  name:"OpenAI GPT-5.4 nano",inR:0.20,  outR:1.25,  crR:0.02,    cwR:0.20,  batch:true,  unconf:true  },
     { id:"qwen-flash",name:"Qwen-flash",         inR:0.05,  outR:0.40,  crR:0.005,   cwR:0.05,  batch:true,  unconf:true  },
     { id:"qwen-plus", name:"Qwen-plus",          inR:0.40,  outR:1.20,  crR:0.04,    cwR:0.40,  batch:true,  unconf:true  },
-    { id:"qwen-max",  name:"Qwen-max",           inR:2.50,  outR:7.50,  crR:0.25,    cwR:2.50,  batch:true,  unconf:true  }
+    { id:"qwen-max",  name:"Qwen-max",           inR:2.50,  outR:7.50,  crR:0.25,    cwR:2.50,  batch:true,  unconf:true  },
+    { id:"glm-zai",   name:"GLM 5.2 (Z.ai API)", inR:1.40,  outR:4.40,  crR:0.26,    cwR:1.40,  batch:false, unconf:true  },
+    { id:"glm-or",    name:"GLM 5.2 (OpenRouter)",inR:1.00, outR:4.00,  crR:0.10,    cwR:1.00,  batch:false, unconf:true  }
   ];
   // Flat subscription reference lines ($/month). Not per-token.
   var SUBS = [
+    { name:"GLM Coding Plan", usd:18 },
     { name:"ChatGPT Plus",  usd:20  },
     { name:"Claude Max 5×", usd:100 },
     { name:"ChatGPT Pro 5×",usd:100 },
@@ -344,6 +348,11 @@ claude</code></pre>
   // ---------- render ----------
   function render(){
     var s=state();
+    var tot=s.in+s.out+s.cw+s.cr;
+    $("cachePct").innerHTML = tot>0
+      ? ('Cache reads = <b>'+(s.cr/tot*100).toFixed(0)+'%</b> of your tokens — the cheap part (~10% of input price on Claude, ~2% on DeepSeek). '+
+         'Cache-write '+(s.cw/tot*100).toFixed(0)+'% · fresh input '+(s.in/tot*100).toFixed(0)+'% · output '+(s.out/tot*100).toFixed(0)+'%.')
+      : '';
     var rows=MODELS.map(function(m){ return {m:m, c:cost(m,s)}; }).sort(function(a,b){return a.c-b.c;});
     var cheap=rows.length?rows[0].c:0;
     var maxC=rows.reduce(function(a,r){return Math.max(a,r.c);},0);
