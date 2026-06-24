@@ -21,6 +21,9 @@ metered API vs flat subscription vs self-hosted.
   Claude Code↔DeepSeek routing, privacy/jurisdiction, OpenAI sub-vs-API, Qwen, and local agents. Every
   figure cited with an access date; unconfirmed figures flagged.
 - **`sync-usage.ps1`** — local Windows script: runs `ccusage` and writes `usage.json` (local only).
+- **`glm.ps1`** — local Windows launcher: opens a Claude Code session routed to GLM 5.2 (Z.ai)
+  so that work runs on your GLM Coding Plan instead of your Claude weekly limit. The Z.ai key it
+  caches (`.glm-key`) is git-ignored. Run `./glm.ps1`; close the window to return to normal Claude.
 - **`profile.local.example.json`** — schema for optional personalization.
 
 ## Personalize it (local only, never published)
