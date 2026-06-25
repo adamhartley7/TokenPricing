@@ -132,6 +132,49 @@ greenfield build.
 
 ---
 
+## 8. See & drive it all — ClaudeLens (desktop, GLM-routed)
+
+[**ClaudeLens**](https://github.com/giulio333/ClaudeLens) is an open-source (MIT) desktop app that
+reads your local `~/.claude/` folder and gives you a visual UI to browse past sessions, edit your
+memory / `CLAUDE.md` / skills / agents, replay sessions, and continue them via an **embedded terminal**
+or an **in-app chat**. Because it reads the same `~/.claude/`, it surfaces the orchestrator subagents
+from step 5 and everything your routed terminals create — one window over the whole setup.
+
+It can't be embedded in the published web page (it's a desktop program that needs your local files);
+instead we add it to the toolkit and point it at GLM so it stays off your Claude limit.
+
+**Install (Windows — experimental):**
+```text
+1. Download the Windows .exe from https://github.com/giulio333/ClaudeLens/releases
+2. Run the installer. Windows SmartScreen may warn -> "More info" -> "Run anyway".
+```
+(macOS/Linux builds exist too; Windows is flagged experimental by the project.)
+
+**Run it routed to GLM 5.2 (off your Claude limit):**
+```powershell
+./claudelens.ps1     # sets ANTHROPIC_BASE_URL/_AUTH_TOKEN to Z.ai, then opens ClaudeLens
+```
+This reuses the same `.glm-key` as `glm.ps1` (step 6). The app inherits the env vars from the launching
+window, so its terminal and chat run on GLM. If `claudelens.ps1` can't find the app, it prints install
+help and lets you paste/save the path.
+
+**Caveats:**
+- **Quit ClaudeLens fully before relaunching via the script** — it's single-instance, so an
+  already-open window will be refocused and ignore the new GLM routing.
+- The **embedded terminal** definitely inherits GLM; the **in-app chat** (Claude Agent SDK) should too,
+  since it reads the same `ANTHROPIC_*` env — verify with the checks below.
+- ClaudeLens sends anonymous telemetry by default; opt out under **Settings → Privacy**.
+- Same privacy caveat as everywhere here: the hosted Z.ai endpoint stores data in the PRC — use a
+  local/Western model for sensitive code.
+
+**Verify:**
+1. `./claudelens.ps1` → green "Routed to GLM 5.2" banner, ClaudeLens opens.
+2. In its embedded terminal: `echo $env:ANTHROPIC_BASE_URL` → should print `https://api.z.ai/api/anthropic`.
+3. Send a test message in the in-app chat; confirm your Z.ai usage ticks up and your Claude usage does not.
+4. Confirm it lists your existing sessions and shows `.claude/agents/`.
+
+---
+
 ## Reality check / honest limits
 - GLM & DeepSeek are a notch below Opus on the hardest agentic work, and tool-use via a router is slightly
   less reliable than native Claude — keep `final-reviewer` on Opus and verify on real tasks.

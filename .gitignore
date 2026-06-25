@@ -14,6 +14,9 @@ profile.local.json
 # DeepSeek API key cached locally by deepseek.ps1 — a secret, never commit it.
 .deepseek-key
 
+# Local path to the ClaudeLens executable, cached by claudelens.ps1 — machine-specific.
+.claudelens-path
+
 # Personal: Anthropic data export + the importer's output + any local vector store.
 *.zip
 _memory_import/
