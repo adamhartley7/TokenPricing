@@ -1,0 +1,25 @@
+# Standalone .gitignore for the 7CE's app (used when 7ces/ is its own repo). Paths are relative to
+# this folder, so it also applies inside the parent TokenPricing repo.
+
+# Secrets — keys live ONLY in these (never commit them).
+gateway/.env
+librechat/.env
+.deepseek-key
+.anthropic-key
+.glm-key
+
+# Python venv + bytecode.
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Cost ledger (may hold personal usage) + any local DB, and the hidden-launch log.
+**/*.sqlite3
+gateway/gateway.log
+
+# Optional bundled DeepSeek tokenizer (large; downloaded locally).
+gateway/vendor/
+
+# Keep the example env files tracked (placeholders only).
+!gateway/.env.example
+!librechat/.env.example
