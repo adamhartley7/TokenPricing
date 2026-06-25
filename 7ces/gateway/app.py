@@ -287,6 +287,15 @@ async def meter_page():
     return HTMLResponse("<h1>7CE's gateway</h1><p>See <a href='/meter'>/meter</a>.</p>")
 
 
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page():
+    """A tiny no-Docker chat UI that talks straight to the gateway (same-origin, so no CORS)."""
+    page = GATEWAY_DIR / "chat.html"
+    if page.exists():
+        return HTMLResponse(page.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>7CE's chat</h1><p>chat.html is missing.</p>")
+
+
 if __name__ == "__main__":
     import uvicorn
 
