@@ -84,7 +84,7 @@ public static class StayAwake {
     public static extern uint SetThreadExecutionState(uint esFlags);
 }
 '@
-[uint32]$ES_CONTINUOUS      = 0x80000000
+[uint32]$ES_CONTINUOUS      = 0x80000000L  # L suffix: parse as Int64 first so Windows PowerShell 5.1 doesn't read it as a negative Int32
 [uint32]$ES_SYSTEM_REQUIRED = 0x00000001
 [StayAwake]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED) | Out-Null
 
