@@ -111,6 +111,18 @@ window at a cheaper model and pass through any `claude` flags:
 ```
 Close the window to return to normal Claude.
 
+**Long / overnight runs:** `glm-overnight.ps1` bundles GLM routing + a Windows keep-awake (auto-restored
+on exit). It asks permissions by default; add **`-Unattended`** to also pass `--dangerously-skip-permissions`
+so Claude Code never stops to ask — that's what makes it truly hands-off. `cd` into the target project
+first, then run it; pass an initial task prompt as an argument if you like:
+```powershell
+cd C:\my\project
+C:\path\to\TokenPricing\glm-overnight.ps1 -Unattended "Work through TODO.md top to bottom, committing after each task."
+```
+Run **one window per project** to do several at once. Use `-Unattended` only in a **git repo** so
+`git diff` lets you review/undo everything in the morning, and only with tasks you're comfortable
+running unattended.
+
 ---
 
 ## 7. Your personalized chat/Cowork app — fork LibreChat
