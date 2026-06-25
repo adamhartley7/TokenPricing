@@ -123,6 +123,10 @@ Run **one window per project** to do several at once. Use `-Unattended` only in 
 `git diff` lets you review/undo everything in the morning, and only with tasks you're comfortable
 running unattended.
 
+`deepseek-overnight.ps1` is the same launcher routed to **DeepSeek V4 Pro** (reuses `.deepseek-key`) —
+the cheapest metered overflow option. Prefer it when **cost** matters most; prefer `glm-overnight.ps1`
+when **reliability** matters most, since DeepSeek is an unofficial (translator-based) Claude Code route.
+
 ---
 
 ## 7. Your personalized chat/Cowork app — fork LibreChat

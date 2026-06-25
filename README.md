@@ -28,6 +28,9 @@ metered API vs flat subscription vs self-hosted.
   ends (restoring normal sleep on exit). Asks permissions by default; add **`-Unattended`** for true
   hands-off overnight work (skips Claude Code's permission prompts). `cd` into the target project first.
   Use `-Unattended` only in a git repo — see ADVANCED-SETUP §6.
+- **`deepseek-overnight.ps1`** — same as `glm-overnight.ps1` but routed to **DeepSeek V4 Pro** (the
+  cheapest metered overflow option). Reuses `.deepseek-key`. DeepSeek is an unofficial Claude Code route,
+  so for delicate unattended runs prefer `glm-overnight.ps1`.
 - **`claudelens.ps1`** — local Windows launcher: open [ClaudeLens](https://github.com/giulio333/ClaudeLens)
   (a desktop browser for your `~/.claude/` sessions, memory, skills and agents) routed to GLM 5.2, so its
   terminal and in-app chat also run off your Claude weekly limit. Reuses the same `.glm-key`. See ADVANCED-SETUP §8.
