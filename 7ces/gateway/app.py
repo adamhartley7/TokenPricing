@@ -266,6 +266,18 @@ async def meter(request: Request):
     return JSONResponse(app.state.ledger.meter_snapshot(session_id))
 
 
+@app.get("/models")
+async def models():
+    """Model catalogue for the UI (from pricing.json) + which providers currently have a key."""
+    present = {"anthropic": bool(config.anthropic_key), "deepseek": bool(config.deepseek_key)}
+    cat = pricing.catalog()
+    for m in cat:
+        m["available"] = present.get(m["provider"], False)
+        # OpenAI-compatible providers use /v1/chat/completions; Anthropic uses /v1/messages.
+        m["shape"] = "anthropic" if m["provider"] == "anthropic" else "openai"
+    return {"models": cat, "providers": present}
+
+
 @app.get("/health")
 async def health():
     return {

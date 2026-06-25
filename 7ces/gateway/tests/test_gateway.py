@@ -188,6 +188,15 @@ def test_passthrough_blocks_billable_endpoint(client):
     assert FakeClient.forwarded["count"] == 0
 
 
+def test_models_endpoint(client):
+    body = client.get("/models").json()
+    by_id = {m["id"]: m for m in body["models"]}
+    assert "deepseek-v4-flash" in by_id and "claude-opus-4-8" in by_id
+    assert by_id["deepseek-v4-flash"]["shape"] == "openai"
+    assert by_id["claude-opus-4-8"]["shape"] == "anthropic"
+    assert "providers" in body
+
+
 def test_health(client):
     h = client.get("/health").json()
     assert h["ok"] is True

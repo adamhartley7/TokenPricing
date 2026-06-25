@@ -109,6 +109,20 @@ def actual_usd(model: str, usage: dict) -> float:
     return cost / _PER
 
 
+def catalog() -> list[dict]:
+    """Public model list for the UI: id, provider, per-1M prices, and the confirmed flag."""
+    return [
+        {
+            "id": mid,
+            "provider": m["provider"],
+            "input": m["input"],
+            "output": m["output"],
+            "confirmed": bool(m.get("confirmed", False)),
+        }
+        for mid, m in _DATA["models"].items()
+    ]
+
+
 def tokens_from_usage(usage: dict) -> tuple[int, int]:
     """Return (input_tokens, output_tokens) from either usage shape, for the ledger."""
     if not usage:

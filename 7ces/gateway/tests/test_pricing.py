@@ -63,6 +63,15 @@ def test_tokens_from_usage():
     assert pricing.tokens_from_usage(None) == (0, 0)
 
 
+def test_catalog():
+    cat = pricing.catalog()
+    ids = {m["id"] for m in cat}
+    assert "deepseek-v4-flash" in ids and "claude-opus-4-8" in ids
+    flash = next(m for m in cat if m["id"] == "deepseek-v4-flash")
+    assert flash["provider"] == "deepseek" and flash["output"] == 0.28
+    assert flash["confirmed"] is False
+
+
 def test_report_md_anchor_values():
     """Spot-check the headline per-1M rates against REPORT.md."""
     assert pricing.rates("claude-opus-4-8")["input"] == 5.0
