@@ -13,8 +13,8 @@ version: 1.2.8
 endpoints:
   custom:
     - name: "DeepSeek"
-      provider: "openai"
-      # The gateway injects the REAL key; this value is ignored by the gateway. Keep it a dummy.
+      # No `provider:` line — custom endpoints are OpenAI-compatible by default (only Anthropic-shape
+      # endpoints set `provider: anthropic`). The gateway injects the REAL key; this is a dummy.
       apiKey: "${DEEPSEEK_API_KEY}"
       # LibreChat POSTs to {baseURL}/chat/completions. host.docker.internal = the Windows host.
       baseURL: "http://host.docker.internal:8787/deepseek/v1"
