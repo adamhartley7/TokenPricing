@@ -1,0 +1,25 @@
+{
+  "_comment": "EXAMPLE schema only. Copy to profile.local.json (git-ignored) and fill in your own values. index.html optionally fetches profile.local.json at runtime to personalize the page; if absent it falls back to neutral generic defaults. NEVER commit a filled-in profile.local.json — keep personal data local.",
+  "role": "your role",
+  "location": "your city",
+  "primaryOS": "your OS (e.g. Windows / macOS / Linux)",
+  "devices": [
+    {
+      "name": "laptop",
+      "type": "thin-and-light laptop",
+      "vramGB": null,
+      "notes": "e.g. integrated GPU / NPU; describe what you have"
+    },
+    {
+      "name": "desktop",
+      "type": "desktop with discrete GPU",
+      "vramGB": null,
+      "notes": "e.g. single consumer GPU; put its VRAM in vramGB"
+    }
+  ],
+  "goals": [
+    "your goal, e.g. cheap bulk/background work",
+    "your goal, e.g. run a small model locally for privacy",
+    "your goal, e.g. decide subscription vs API"
+  ]
+}

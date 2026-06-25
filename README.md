@@ -1,15 +1,45 @@
 # TokenPricing
 
-Neutral, fully-sourced cost comparison of LLM access options for a heavy Claude Code user
-(June 2026): **DeepSeek API · Claude API · Gemini API · Claude Max 5x · Claude Max 20x**.
+Neutral, fully-sourced cost + strategy tool for a heavy coding-agent user (June 2026), covering
+**Claude · DeepSeek · Gemini · OpenAI · Qwen · local (Ollama)** across three axes:
+metered API vs flat subscription vs self-hosted.
 
-- **[REPORT.md](./REPORT.md)** — findings, 5-way price table, subscription-vs-API break-even math,
-  Claude Code↔DeepSeek routing on Windows, and a privacy/jurisdiction section. Every figure cited.
-- **`index.html`** — interactive cost calculator. Enter your monthly input/output token volumes
-  (with cache-hit % and batch toggles) and see live monthly $ for each metered option, with the
-  flat Max plans as reference lines plus a break-even readout.
+**Live:** https://adamhartley7.github.io/TokenPricing/ — served via GitHub Pages from the
+`claude/token-app-deepseek-cost-analysis-fvsql5` branch (root). Or open `index.html` locally.
+(When you merge into `main`, repoint Pages at `main`.)
 
-To view the calculator live, enable **GitHub Pages** for this repo (Settings → Pages → deploy from
-`main`, root), then open the published URL. Or open `index.html` locally in any browser.
+## What's here
+- **`index.html`** — single-file app with four modes:
+  - **Calculator** — enter your monthly input / output / cache-write / cache-read tokens (the four
+    `ccusage` columns) and see live monthly cost for every metered model, with subscription prices and
+    a local-electricity estimate as reference lines, plus the Sonnet/Opus subscription break-even.
+  - **Explainer** — how tokens, caching, and subscription-vs-API break-even actually work.
+  - **Local agents** — running models with Ollama: VRAM→model-size guide, tokens/sec, and a real
+    electricity-based running-cost estimate.
+  - **Setup & linking** — the safe usage-sync workflow and why API keys must never go in a public page.
+- **[REPORT.md](./REPORT.md)** — the full written analysis: all-provider price table, break-even math,
+  Claude Code↔DeepSeek routing, privacy/jurisdiction, OpenAI sub-vs-API, Qwen, and local agents. Every
+  figure cited with an access date; unconfirmed figures flagged.
+- **`sync-usage.ps1`** — local Windows script: runs `ccusage` and writes `usage.json` (local only).
+- **`glm.ps1`** / **`deepseek.ps1`** — local Windows launchers: open a Claude Code session routed to
+  GLM 5.2 (Z.ai) or DeepSeek V4 Pro so that work runs off your Claude weekly limit. Cached keys
+  (`.glm-key` / `.deepseek-key`) are git-ignored. Run `./glm.ps1`; close the window to return to Claude.
+- **[ADVANCED-SETUP.md](./ADVANCED-SETUP.md)** — offload to GLM/DeepSeek, add a search + memory MCP server,
+  import your Claude history for RAG, run the Opus-plans/cheap-workers orchestrator pattern, and fork
+  LibreChat into your own modifiable chat/Cowork-style app.
+- **`.claude/agents/`** — ready-made orchestrator-worker subagents (`bulk-implementer`, `researcher`,
+  `test-writer` workers + an Opus `final-reviewer` quality gate).
+- **`claude-code-router/config.example.json`** — route worker/background traffic to GLM, keep Opus as orchestrator.
+- **`import-claude-export.py`** — turn your Anthropic data-export zip into clean Markdown for a memory/RAG store
+  (local-only output; git-ignored).
+- **`profile.local.example.json`** — schema for optional personalization.
 
-> Cost estimates only; not financial advice. Prices change — verify live before committing spend.
+## Personalize it (local only, never published)
+1. `./sync-usage.ps1` → writes `usage.json` (your real usage; git-ignored).
+2. Copy `profile.local.example.json` → `profile.local.json` and fill in your role / location / devices.
+
+The page `fetch()`es both files at load and personalizes if present; if absent it shows generic
+defaults. Both are git-ignored so the published page stays free of personal data.
+
+> Cost estimates only; not financial advice. Many non-Claude prices are unverified (official pages
+> blocked the fetch) — flagged in-app and in REPORT.md. Verify live prices before committing spend.
