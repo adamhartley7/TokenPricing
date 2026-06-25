@@ -23,7 +23,13 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    StreamingResponse,
+)
 
 import pricing
 import tokencount
@@ -306,6 +312,33 @@ async def chat_page():
     if page.exists():
         return HTMLResponse(page.read_text(encoding="utf-8"))
     return HTMLResponse("<h1>7CE's chat</h1><p>chat.html is missing.</p>")
+
+
+# --- PWA assets (make /chat installable on a phone) ------------------------
+@app.get("/manifest.json")
+async def manifest():
+    p = GATEWAY_DIR / "manifest.json"
+    if p.exists():
+        return FileResponse(p, media_type="application/manifest+json")
+    return JSONResponse({"error": "missing"}, status_code=404)
+
+
+@app.get("/sw.js")
+async def service_worker():
+    # Served from the root so its scope covers the whole app.
+    p = GATEWAY_DIR / "sw.js"
+    if p.exists():
+        return FileResponse(p, media_type="application/javascript")
+    return PlainTextResponse("", status_code=404)
+
+
+@app.get("/icons/{name}")
+async def icon(name: str):
+    if name in ("icon-192.png", "icon-512.png"):
+        p = GATEWAY_DIR / "icons" / name
+        if p.exists():
+            return FileResponse(p, media_type="image/png")
+    return JSONResponse({"error": "not found"}, status_code=404)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>7CE's</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1117" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="7CE's" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <style>
   :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#21262d; --line2:#30363d; --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --grn:#2ea043; }
   * { box-sizing: border-box; }
@@ -379,6 +385,12 @@ $("#input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shi
 
 /* ---------- boot ---------- */
 (async () => { await loadModels(); applyMode("none"); restore(); refreshMeter(); $("#input").focus(); })();
+
+/* PWA: register the offline service worker only in a secure context (localhost / HTTPS / Tailscale).
+   Over plain http://LAN-IP the page still installs ("Add to Home Screen"); offline just won't cache. */
+if (window.isSecureContext && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 </script>
 </body>
 </html>

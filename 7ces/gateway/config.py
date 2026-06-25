@@ -30,16 +30,19 @@ load_dotenv(GATEWAY_DIR / ".env")
 
 
 def _read_key_file(name: str) -> str | None:
-    """Read a git-ignored key file from the repo root, if it exists."""
-    p = REPO_ROOT / name
-    if p.exists():
-        try:
-            # utf-8-sig strips a leading BOM — Windows PowerShell's `Set-Content -Encoding UTF8`
-            # (as used by deepseek.ps1/glm.ps1) writes one, which would corrupt the auth header.
-            val = p.read_text(encoding="utf-8-sig").strip()
-            return val or None
-        except OSError:
-            return None
+    """Read a git-ignored key file if present. Searches both the nested layout
+    (<repo>/7ces/gateway) and a standalone layout (<repo>/gateway), so the gateway works whether it
+    lives inside the TokenPricing repo or in its own 7CEs repo."""
+    for p in (REPO_ROOT / name, GATEWAY_DIR.parent / name, GATEWAY_DIR / name):
+        if p.exists():
+            try:
+                # utf-8-sig strips a leading BOM — Windows PowerShell's `Set-Content -Encoding UTF8`
+                # (as used by deepseek.ps1/glm.ps1) writes one, which would corrupt the auth header.
+                val = p.read_text(encoding="utf-8-sig").strip()
+                if val:
+                    return val
+            except OSError:
+                continue
     return None
 
 

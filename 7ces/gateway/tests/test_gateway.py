@@ -197,6 +197,17 @@ def test_models_endpoint(client):
     assert "providers" in body
 
 
+def test_pwa_assets(client):
+    m = client.get("/manifest.json")
+    assert m.status_code == 200
+    assert m.json()["start_url"] == "/chat"
+    sw = client.get("/sw.js")
+    assert sw.status_code == 200 and "addEventListener" in sw.text
+    ic = client.get("/icons/icon-192.png")
+    assert ic.status_code == 200 and ic.headers["content-type"].startswith("image/png")
+    assert client.get("/icons/evil.png").status_code == 404
+
+
 def test_health(client):
     h = client.get("/health").json()
     assert h["ok"] is True

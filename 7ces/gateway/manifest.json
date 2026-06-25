@@ -1,0 +1,15 @@
+{
+  "name": "7CE's",
+  "short_name": "7CEs",
+  "description": "7CE's — your spend-guarded multi-provider AI workbench",
+  "start_url": "/chat",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ]
+}
