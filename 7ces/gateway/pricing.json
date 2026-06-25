@@ -1,0 +1,65 @@
+{
+  "_comment": "Single source of cost truth for the gateway. USD per 1,000,000 tokens. Values copied verbatim from REPORT.md section 2 (access date 2026-06-24). 'confirmed' marks whether the figure was verified against the primary vendor page; DeepSeek figures are aggregator-sourced (official page 403s) — re-verify at https://api-docs.deepseek.com before relying on spend numbers. cache_read = price for input tokens served from cache; cache_write_5m = 5-minute cache write (Anthropic). DeepSeek output ceiling uses the cache-naive input/output rates (upper bound).",
+  "currency": "USD",
+  "per_tokens": 1000000,
+  "aliases": {
+    "claude-opus-4-8": "claude-opus-4-8",
+    "claude-opus": "claude-opus-4-8",
+    "opus": "claude-opus-4-8",
+    "claude-sonnet-4-6": "claude-sonnet-4-6",
+    "claude-sonnet": "claude-sonnet-4-6",
+    "sonnet": "claude-sonnet-4-6",
+    "claude-haiku-4-5": "claude-haiku-4-5",
+    "claude-haiku": "claude-haiku-4-5",
+    "haiku": "claude-haiku-4-5",
+    "deepseek-v4-pro": "deepseek-v4-pro",
+    "deepseek-chat": "deepseek-v4-pro",
+    "deepseek-reasoner": "deepseek-v4-pro",
+    "deepseek-v4-flash": "deepseek-v4-flash"
+  },
+  "models": {
+    "claude-opus-4-8": {
+      "provider": "anthropic",
+      "input": 5.0,
+      "output": 25.0,
+      "cache_read": 0.5,
+      "cache_write_5m": 6.25,
+      "confirmed": true,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "claude-sonnet-4-6": {
+      "provider": "anthropic",
+      "input": 3.0,
+      "output": 15.0,
+      "cache_read": 0.3,
+      "cache_write_5m": 3.75,
+      "confirmed": true,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "claude-haiku-4-5": {
+      "provider": "anthropic",
+      "input": 1.0,
+      "output": 5.0,
+      "cache_read": 0.1,
+      "cache_write_5m": 1.25,
+      "confirmed": true,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    "deepseek-v4-pro": {
+      "provider": "deepseek",
+      "input": 0.435,
+      "output": 0.87,
+      "cache_read": 0.003625,
+      "confirmed": false,
+      "source": "https://api-docs.deepseek.com/quick_start/pricing"
+    },
+    "deepseek-v4-flash": {
+      "provider": "deepseek",
+      "input": 0.14,
+      "output": 0.28,
+      "cache_read": 0.0028,
+      "confirmed": false,
+      "source": "https://api-docs.deepseek.com/quick_start/pricing"
+    }
+  }
+}

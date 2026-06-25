@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>7CE's — cost meter</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  h1 small { color: #8b949e; font-weight: 400; font-size: 13px; }
+  .sub { color: #8b949e; font-size: 12px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 14px 16px; }
+  .card .label { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .card .value { font-size: 26px; font-weight: 650; margin-top: 4px; }
+  .bar { height: 6px; background: #21262d; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: #2ea043; }
+  .bar.warn > span { background: #d29922; }
+  .bar.over > span { background: #f85149; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  th { color: #8b949e; font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .capped { color: #f85149; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: #21262d; }
+  section { margin-top: 24px; }
+  .muted { color: #8b949e; }
+</style>
+</head>
+<body>
+  <h1>7CE's <small>Central Executive · cost meter</small></h1>
+  <div class="sub">Session <code id="sid">—</code> · live spend per the spend-guard gateway · refreshes every 4s</div>
+
+  <div class="grid" id="cards"></div>
+
+  <section>
+    <h2 style="font-size:15px;">By provider</h2>
+    <table id="byprovider"><thead><tr><th>Provider</th><th class="num">Calls</th><th class="num">Cost (USD)</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2 style="font-size:15px;">Recent calls</h2>
+    <table id="recent">
+      <thead><tr><th>Time (UTC)</th><th>Provider</th><th>Model</th><th class="num">In</th><th class="num">Out</th><th class="num">Cost</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <p class="muted" id="err"></p>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const usd = (n) => "$" + Number(n || 0).toFixed(n < 0.01 ? 5 : 4);
+
+function bar(used, cap) {
+  const pct = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+  const cls = pct >= 100 ? "over" : pct >= 80 ? "warn" : "";
+  return `<div class="bar ${cls}"><span style="width:${pct}%"></span></div>`;
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/meter", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const m = await r.json();
+    $("#err").textContent = "";
+    $("#sid").textContent = m.session_id;
+
+    const caps = m.caps, t = m.totals;
+    $("#cards").innerHTML = `
+      <div class="card">
+        <div class="label">This session</div>
+        <div class="value">${usd(t.session_usd)}</div>
+        <div class="muted">cap ${usd(caps.per_session_usd)}</div>
+        ${bar(t.session_usd, caps.per_session_usd)}
+      </div>
+      <div class="card">
+        <div class="label">Today (UTC)</div>
+        <div class="value">${usd(t.today_usd)}</div>
+        <div class="muted">cap ${usd(caps.per_day_usd)}</div>
+        ${bar(t.today_usd, caps.per_day_usd)}
+      </div>
+      <div class="card">
+        <div class="label">Per-request cap</div>
+        <div class="value">${usd(caps.per_request_usd)}</div>
+        <div class="muted">enforced before every call</div>
+      </div>`;
+
+    const bp = Object.entries(m.by_provider || {});
+    $("#byprovider tbody").innerHTML = bp.length
+      ? bp.map(([p, v]) => `<tr><td>${p}</td><td class="num">${v.calls}</td><td class="num">${usd(v.cost_usd)}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="muted">no calls yet</td></tr>`;
+
+    $("#recent tbody").innerHTML = (m.recent || []).map((e) => {
+      const time = (e.iso || "").replace("T", " ").slice(0, 19);
+      const tag = e.capped ? `<span class="pill capped" title="${(e.note || "").replace(/"/g, "&quot;")}">refused</span>` : "";
+      return `<tr>
+        <td>${time}</td><td>${e.provider}</td><td>${e.model}</td>
+        <td class="num">${e.input_tokens}</td><td class="num">${e.output_tokens}</td>
+        <td class="num ${e.capped ? "capped" : ""}">${e.capped ? "—" : usd(e.cost_usd)}</td>
+        <td>${tag}</td></tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted">no calls yet</td></tr>`;
+  } catch (e) {
+    $("#err").textContent = "Cannot reach the gateway /meter endpoint — is it running on this port? (" + e.message + ")";
+  }
+}
+tick();
+setInterval(tick, 4000);
+</script>
+</body>
+</html>

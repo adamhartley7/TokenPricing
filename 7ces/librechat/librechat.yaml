@@ -1,0 +1,46 @@
+# 7CE's — LibreChat config. Copy this file into the ROOT of your LibreChat clone (next to its
+# docker-compose.yml), alongside the docker-compose.override.yml in this folder.
+#
+# It adds DeepSeek as an OpenAI-compatible custom endpoint whose baseURL is the 7CE's gateway, so
+# every DeepSeek call is cap-checked and metered. Claude is routed through the gateway separately,
+# via the ANTHROPIC_REVERSE_PROXY env var (see ../librechat/.env.example) — no block needed here.
+#
+# NOTE: set `version` to match the value in your clone's `librechat.example.yaml` (it changes
+# between releases). 1.2.8 is a safe recent value; LibreChat warns but still loads if it differs.
+
+version: 1.2.8
+
+endpoints:
+  custom:
+    - name: "DeepSeek"
+      provider: "openai"
+      # The gateway injects the REAL key; this value is ignored by the gateway. Keep it a dummy.
+      apiKey: "${DEEPSEEK_API_KEY}"
+      # LibreChat POSTs to {baseURL}/chat/completions. host.docker.internal = the Windows host.
+      baseURL: "http://host.docker.internal:8787/deepseek/v1"
+      models:
+        default:
+          - "deepseek-v4-pro"
+          - "deepseek-v4-flash"
+        fetch: false
+      titleConvo: true
+      titleModel: "deepseek-v4-flash"
+      modelDisplayLabel: "DeepSeek"
+
+    # --- OPTIONAL alternative for Claude (instead of ANTHROPIC_REVERSE_PROXY) -------------------
+    # If the env-var route doesn't behave, uncomment this custom endpoint instead and remove
+    # ANTHROPIC_REVERSE_PROXY from .env. LibreChat sends Anthropic-format requests to {baseURL}.
+    # - name: "Claude"
+    #   provider: "anthropic"
+    #   apiKey: "${ANTHROPIC_API_KEY}"
+    #   baseURL: "http://host.docker.internal:8787/anthropic"
+    #   headers:
+    #     anthropic-version: "2023-06-01"
+    #   models:
+    #     default:
+    #       - "claude-opus-4-8"
+    #       - "claude-sonnet-4-6"
+    #       - "claude-haiku-4-5"
+    #     fetch: false
+    #   titleConvo: true
+    #   titleModel: "claude-haiku-4-5"

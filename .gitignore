@@ -22,3 +22,19 @@ qdrant_storage/
 
 # The example/schema file is committed on purpose (generic placeholders only) — do NOT ignore it.
 !profile.local.example.json
+
+# --- 7CE's app -----------------------------------------------------------------
+# Secrets: real keys live only in the gateway .env (or the repo-root key files above).
+7ces/**/.env
+.anthropic-key
+# Python virtualenv + bytecode.
+7ces/**/.venv/
+**/__pycache__/
+*.pyc
+# Cost ledger (may contain personal usage figures) and any local DB.
+7ces/**/*.sqlite3
+# Optional bundled DeepSeek tokenizer (large; user downloads it).
+7ces/gateway/vendor/
+# The example env files ARE committed (placeholders only) — keep them tracked.
+!7ces/gateway/.env.example
+!7ces/librechat/.env.example
