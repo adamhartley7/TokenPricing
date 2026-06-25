@@ -24,6 +24,16 @@ metered API vs flat subscription vs self-hosted.
 - **`glm.ps1`** / **`deepseek.ps1`** — local Windows launchers: open a Claude Code session routed to
   GLM 5.2 (Z.ai) or DeepSeek V4 Pro so that work runs off your Claude weekly limit. Cached keys
   (`.glm-key` / `.deepseek-key`) are git-ignored. Run `./glm.ps1`; close the window to return to Claude.
+- **`glm-overnight.ps1`** — long-run launcher: routes to GLM and keeps the PC awake until the session
+  ends (restoring normal sleep on exit). Asks permissions by default; add **`-Unattended`** for true
+  hands-off overnight work (skips Claude Code's permission prompts). `cd` into the target project first.
+  Use `-Unattended` only in a git repo — see ADVANCED-SETUP §6.
+- **`deepseek-overnight.ps1`** — same as `glm-overnight.ps1` but routed to **DeepSeek V4 Pro** (the
+  cheapest metered overflow option). Reuses `.deepseek-key`. DeepSeek is an unofficial Claude Code route,
+  so for delicate unattended runs prefer `glm-overnight.ps1`.
+- **`claudelens.ps1`** — local Windows launcher: open [ClaudeLens](https://github.com/giulio333/ClaudeLens)
+  (a desktop browser for your `~/.claude/` sessions, memory, skills and agents) routed to GLM 5.2, so its
+  terminal and in-app chat also run off your Claude weekly limit. Reuses the same `.glm-key`. See ADVANCED-SETUP §8.
 - **[ADVANCED-SETUP.md](./ADVANCED-SETUP.md)** — offload to GLM/DeepSeek, add a search + memory MCP server,
   import your Claude history for RAG, run the Opus-plans/cheap-workers orchestrator pattern, and fork
   LibreChat into your own modifiable chat/Cowork-style app.
