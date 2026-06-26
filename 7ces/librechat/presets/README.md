@@ -1,4 +1,4 @@
-# §5.1 controls in LibreChat — Presets
+﻿# §5.1 controls in LibreChat — Presets
 
 The brief's per-request Chat controls map onto LibreChat like this:
 
@@ -8,7 +8,7 @@ The brief's per-request Chat controls map onto LibreChat like this:
 | **Output length** | **Max Output Tokens** (Advanced Settings, or per-Preset) — also the gateway's output bound |
 | **Depth / "time thinking"** | **reasoning effort** — for DeepSeek set `reasoning_effort` (non-thinking → `low`, thinking → `medium`, max → `high`); for Claude, effort is adaptive |
 | **Output format** | the **system prompt** — paste one of the templates in this folder |
-| **Spend cap** | enforced by the gateway (per-request / session / day). Tighten a single message with **Max Output Tokens**, or send the header `x-7ces-cap: <usd>` |
+| **Spend cap** | enforced by the gateway (per-request / session / day). Tighten a single message with **Max Output Tokens**, or send the header `x-7Cs-cap: <usd>` |
 
 ## Make a Preset (once), then pick it per request
 

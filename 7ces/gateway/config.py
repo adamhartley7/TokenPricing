@@ -1,5 +1,5 @@
-"""
-7CE's spend-guard gateway — configuration.
+﻿"""
+7C's spend-guard gateway — configuration.
 
 Loads caps, keys and endpoints from environment / a local .env file. SECRETS RULE: API keys
 live only here (in memory, from .env or a git-ignored key file). They are never logged, never
@@ -22,17 +22,17 @@ except Exception:  # pragma: no cover - trivial fallback
     def load_dotenv(*_a, **_k):  # type: ignore
         return False
 
-GATEWAY_DIR = Path(__file__).resolve().parent          # .../7ces/gateway
+GATEWAY_DIR = Path(__file__).resolve().parent          # .../7Cs/gateway
 REPO_ROOT = GATEWAY_DIR.parents[1]                      # repo root (two levels up)
 
-# Load 7ces/gateway/.env if present (placeholders live in .env.example).
+# Load 7Cs/gateway/.env if present (placeholders live in .env.example).
 load_dotenv(GATEWAY_DIR / ".env")
 
 
 def _read_key_file(name: str) -> str | None:
     """Read a git-ignored key file if present. Searches both the nested layout
-    (<repo>/7ces/gateway) and a standalone layout (<repo>/gateway), so the gateway works whether it
-    lives inside the TokenPricing repo or in its own 7CEs repo."""
+    (<repo>/7Cs/gateway) and a standalone layout (<repo>/gateway), so the gateway works whether it
+    lives inside the TokenPricing repo or in its own 7Cs repo."""
     for p in (REPO_ROOT / name, GATEWAY_DIR.parent / name, GATEWAY_DIR / name):
         if p.exists():
             try:

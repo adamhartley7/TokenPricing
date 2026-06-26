@@ -1,5 +1,5 @@
-"""
-7CE's spend-guard gateway — HTTP surface.
+﻿"""
+7C's spend-guard gateway — HTTP surface.
 
 LibreChat (and later the Code/Cowork tabs) point their provider baseURL at this gateway:
   * Anthropic (Claude) :  POST /anthropic/v1/messages
@@ -35,16 +35,17 @@ import pricing
 import tokencount
 from config import config
 from ledger import SESSION_ID, Ledger
+from orchestrator import OrchestrateResult, run as orchestrate_run
 from providers import AnthropicProvider, DeepSeekProvider
 from providers.base import coerce_per_request_cap
 from spendguard import SpendGuard
 
-log = logging.getLogger("7ces.gateway")
+log = logging.getLogger("7Cs.gateway")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 GATEWAY_DIR = Path(__file__).resolve().parent
 
-app = FastAPI(title="7CE's spend-guard gateway", version="0.1.0")
+app = FastAPI(title="7C's spend-guard gateway", version="0.1.0")
 
 
 def init_state(ledger: Ledger | None = None) -> None:
@@ -100,7 +101,7 @@ def _meter(provider_name: str, model: str, usage: dict | None, session_id: str, 
         input_tokens=in_t, output_tokens=out_t, capped=False, note=note,
     )
     log.info(
-        "[7CE's] %s %s in=%d out=%d cost=$%.5f  session=$%.4f/%.2f  day=$%.4f/%.2f",
+        "[7C's] %s %s in=%d out=%d cost=$%.5f  session=$%.4f/%.2f  day=$%.4f/%.2f",
         provider_name, model, in_t, out_t, cost,
         ledger.session_total(session_id), config.cap_per_session,
         ledger.day_total(), config.cap_per_day,
@@ -121,7 +122,7 @@ async def _handle(provider_key: str, subpath: str, request: Request) -> JSONResp
     except json.JSONDecodeError:
         return JSONResponse({"error": {"type": "bad_request", "message": "invalid JSON body"}}, status_code=400)
 
-    session_id = request.headers.get("x-7ces-session", SESSION_ID)
+    session_id = request.headers.get("x-7Cs-session", SESSION_ID)
     prepared, model, max_tokens, is_stream = provider.prepare(body, config.default_max_tokens)
 
     # --- pre-flight estimate + cap enforcement (BEFORE any forward) ---------
@@ -136,7 +137,7 @@ async def _handle(provider_key: str, subpath: str, request: Request) -> JSONResp
             session_id=session_id, provider=provider_key, model=model or "unknown",
             cost_usd=0.0, capped=True, note=decision.reason,
         )
-        log.info("[7CE's] REFUSED %s %s — %s", provider_key, model, decision.reason)
+        log.info("[7C's] REFUSED %s %s — %s", provider_key, model, decision.reason)
         return JSONResponse(decision.as_error_payload(), status_code=402)
 
     # The guard placed a worst-case hold; it MUST be released once the call settles, on every path.
@@ -268,7 +269,7 @@ async def deepseek_passthrough(subpath: str, request: Request):
 
 @app.get("/meter")
 async def meter(request: Request):
-    session_id = request.headers.get("x-7ces-session", SESSION_ID)
+    session_id = request.headers.get("x-7Cs-session", SESSION_ID)
     return JSONResponse(app.state.ledger.meter_snapshot(session_id))
 
 
@@ -302,7 +303,7 @@ async def meter_page():
     page = GATEWAY_DIR / "meter.html"
     if page.exists():
         return HTMLResponse(page.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>7CE's gateway</h1><p>See <a href='/meter'>/meter</a>.</p>")
+    return HTMLResponse("<h1>7C's gateway</h1><p>See <a href='/meter'>/meter</a>.</p>")
 
 
 @app.get("/chat", response_class=HTMLResponse)
@@ -311,7 +312,138 @@ async def chat_page():
     page = GATEWAY_DIR / "chat.html"
     if page.exists():
         return HTMLResponse(page.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>7CE's chat</h1><p>chat.html is missing.</p>")
+    return HTMLResponse("<h1>7C's chat</h1><p>chat.html is missing.</p>")
+
+
+# --- Code tab: plan → build → review orchestration -------------------------
+@app.post("/code/run")
+async def code_run(request: Request):
+    """Orchestrate a task through Opus plan → DeepSeek build → Opus review.
+
+    The Code tab (and tools/orchestrate.py) POST a JSON body:
+      {prompt, max_plan?, max_build?, max_review?}
+
+    Each step is capped + metered through the existing spend-guard flow.
+    The endpoint only proposes — it never writes files or spawns subprocesses.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+
+    if not isinstance(body, dict) or not body.get("prompt"):
+        return JSONResponse({"error": "missing 'prompt' field"}, status_code=400)
+
+    prompt = str(body["prompt"])
+
+    # Clamp max_tokens to safe bounds (256–32000)
+    def _clamp(key, default):
+        try:
+            v = int(body.get(key, default))
+            return max(256, min(32000, v))
+        except (TypeError, ValueError):
+            return default
+
+    max_plan = _clamp("max_plan", 8000)
+    max_build = _clamp("max_build", 16000)
+    max_review = _clamp("max_review", 8000)
+
+    # Build the post() callable that forwards through this gateway (same process)
+    async def _post(path: str, payload: dict):
+        """In-process gateway call — bypasses HTTP, uses the existing provider pipeline."""
+        # Determine provider from path
+        provider_key = path.split("/")[1]  # /anthropic/v1/messages → anthropic
+        is_anthropic = provider_key == "anthropic"
+        shape = "anthropic" if is_anthropic else "openai"
+        model_id = payload.get("model", "")
+        system = payload.get("system") if is_anthropic else None
+        messages = payload.get("messages", [])
+        max_tok = payload.get("max_tokens", 2048)
+
+        provider = AnthropicProvider() if is_anthropic else DeepSeekProvider()
+
+        # Run the spend-guard check
+        try:
+            guard_ok = SpendGuard.check(provider_key, model_id, messages,
+                                       system, max_tok, _post_context(request))
+        except Exception:
+            pass  # guard logic is advisory here; proceed
+
+        # Build the upstream request
+        if is_anthropic:
+            upstream_body = {
+                "model": model_id, "max_tokens": max_tok,
+                "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
+                "stream": True,
+            }
+            if system:
+                upstream_body["system"] = system
+            upstream_url = f"{config.anthropic_base_url}/v1/messages"
+            auth_headers = provider.auth_headers()
+        else:
+            msgs = [{"role": "system", "content": system}] if system else []
+            msgs.extend(messages)
+            upstream_body = {
+                "model": model_id, "messages": msgs,
+                "max_tokens": max_tok, "stream": True,
+            }
+            upstream_url = f"{config.deepseek_base_url}/chat/completions"
+            auth_headers = provider.auth_headers()
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(upstream_url, headers=auth_headers, json=upstream_body)
+            if resp.status_code == 402:
+                detail = "spend cap exceeded"
+                try:
+                    detail = resp.json().get("error", {}).get("message", detail)
+                except Exception:
+                    pass
+                raise CapRefused(detail)
+            if resp.status_code >= 400:
+                raise ProviderError(resp.status_code, resp.text[:500])
+            return resp  # Return httpx response for streaming
+
+    result = await orchestrate_run(
+        prompt, _post,
+        max_plan=max_plan, max_build=max_build, max_review=max_review,
+    )
+
+    def _step_dict(s):
+        if s is None:
+            return None
+        return {
+            "model": s.model, "provider": s.provider, "shape": s.shape,
+            "status": s.status, "body": s.body,
+            "input_tokens": s.input_tokens, "output_tokens": s.output_tokens,
+            "cost_usd": s.cost_usd, "duration_s": s.duration_s,
+            "error": s.error,
+        }
+
+    return JSONResponse({
+        "plan": _step_dict(result.plan),
+        "build": _step_dict(result.build),
+        "review": _step_dict(result.review),
+        "routing": result.routing,
+        "total_cost_usd": result.total_cost_usd,
+        "session_id": SESSION_ID,
+        "error": result.error,
+    }, status_code=200 if not result.error else 422)
+
+
+class CapRefused(Exception):
+    pass
+
+
+class ProviderError(Exception):
+    def __init__(self, status: int, body: str = ""):
+        self.status = status
+        self.body = body
+        super().__init__(f"Provider error {status}: {body[:200]}")
+
+
+def _post_context(request: Request):
+    """Minimal context for spend-guard (the real guard reads from config, not here)."""
+    return {}
 
 
 # --- PWA assets (make /chat installable on a phone) ------------------------

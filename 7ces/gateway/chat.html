@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>7CE's</title>
+<title>7C's</title>
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#0d1117" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="7CE's" />
+<meta name="apple-mobile-web-app-title" content="7C's" />
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <style>
   :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#21262d; --line2:#30363d; --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --grn:#2ea043; }
@@ -77,7 +77,7 @@
   <script type="text/plain" id="sys-file">You produce concrete, ready-to-save files — not a discussion. For each file, give a one-line heading with its exact relative path, then a fenced code block with the complete runnable contents (no placeholders or "rest unchanged"). After the files, add a short Run section with exact Windows PowerShell commands and prerequisites. Prefer the fewest files that fully solve the task; note assumptions at the top.</script>
 
   <div class="topbar">
-    <div class="brand">7CE's <small>Central Executive</small></div>
+    <div class="brand">7C's <small>Central Executive</small></div>
     <div class="tabs">
       <button data-tab="chat" class="active">Chat</button>
       <button data-tab="code">Code</button>
@@ -120,16 +120,26 @@
     </div>
   </section>
 
-  <!-- CODE (placeholder shell for Phase 3) -->
+  <!-- CODE (Phase 3 — orchestrator) -->
   <section class="panel" id="panel-code">
-    <div class="placeholder">
-      <h2>Code tab — Phase 3</h2>
-      <p>This will be the <b>orchestrator</b>: you type a task, Opus plans it and routes scoped subtasks
-      to DeepSeek where that's cheaper, executes, and reports the plan, the routing decisions, and the
-      running cost — all through the same gateway you see metering Chat.</p>
-      <p>It's intentionally a stub for now: the foundation (this page + the gateway) is in place, so the
-      Code tab is additive, not a rebuild.</p>
+    <div class="controls">
+      <label>Task <textarea id="codeTask" rows="3" style="width:100%;min-width:400px;resize:vertical" placeholder="Describe what to build…"></textarea></label>
     </div>
+    <div class="controls" style="border-bottom:0">
+      <label>Plan max <input id="codeMaxPlan" type="number" value="8000" min="256" max="32000" style="width:80px" /></label>
+      <label>Build max <input id="codeMaxBuild" type="number" value="16000" min="256" max="32000" style="width:80px" /></label>
+      <label>Review max <input id="codeMaxReview" type="number" value="8000" min="256" max="32000" style="width:80px" /></label>
+      <span class="sp" style="flex:1"></span>
+      <button class="send" id="codeRun">Run</button>
+    </div>
+    <main class="log" id="codeLog" style="padding:14px">
+      <div class="placeholder" id="codePlaceholder">
+        <h2>Code tab — orchestrator</h2>
+        <p>Type a task above and hit <b>Run</b>. Opus plans → DeepSeek builds → Opus reviews — all through the spend cap.</p>
+        <p style="font-size:12px;color:var(--dim)">No live streaming yet — the button stays quiet for ~1–2 min while all three models work.</p>
+      </div>
+    </main>
+    <div class="meter" id="codeMeter">session spend: <b>$0.00</b></div>
   </section>
 
   <!-- COWORK (placeholder shell for Phase 4) -->
@@ -145,7 +155,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const log = $("#log");
-const STORE = "7ces-chat-v2";
+const STORE = "7Cs-chat-v2";
 
 let MODELS = [];          // from /models
 let providers = {};       // availability
@@ -277,11 +287,11 @@ function renderAttachBar() {
 
 /* ---------- save / load / new ---------- */
 $("#saveBtn").addEventListener("click", () => {
-  const data = { app:"7CEs", savedAt:new Date().toISOString(), model:$("#model").value, mode, system:$("#sys").value, messages };
+  const data = { app:"7Cs", savedAt:new Date().toISOString(), model:$("#model").value, mode, system:$("#sys").value, messages };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "7ces-chat-" + new Date().toISOString().replace(/[:.]/g,"-").slice(0,19) + ".json";
+  a.download = "7Cs-chat-" + new Date().toISOString().replace(/[:.]/g,"-").slice(0,19) + ".json";
   a.click();
 });
 $("#loadBtn").addEventListener("click", () => $("#loadInput").click());
@@ -335,7 +345,7 @@ async function send() {
 
   if (!model.available) {
     const eEl = addMsgEl("error");
-    eEl.querySelector(".body").textContent = `${model.provider} has no API key in the gateway yet — add one to 7ces/gateway/.env to use ${model.id}.`;
+    eEl.querySelector(".body").textContent = `${model.provider} has no API key in the gateway yet — add one to 7Cs/gateway/.env to use ${model.id}.`;
     messages.pop(); persist(); return;
   }
 
@@ -344,7 +354,7 @@ async function send() {
   body.innerHTML = '<span class="think">thinking…</span>';
 
   const headers = { "content-type":"application/json" };
-  const cap = $("#cap").value.trim(); if (cap) headers["x-7ces-cap"] = cap;
+  const cap = $("#cap").value.trim(); if (cap) headers["x-7Cs-cap"] = cap;
   const sys = $("#sys").value.trim();
   const req = buildRequest(model, sys);
 
@@ -382,6 +392,89 @@ async function send() {
 $("#send").addEventListener("click", send);
 $("#input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 ["#model","#maxtok","#cap","#sys"].forEach(s => $(s).addEventListener("change", persist));
+
+/* ---------- Code tab ---------- */
+let codeBusy = false;
+async function runCode() {
+  if (codeBusy) return;
+  const prompt = $("#codeTask").value.trim();
+  if (!prompt) return;
+
+  codeBusy = true; $("#codeRun").disabled = true;
+  $("#codePlaceholder").style.display = "none";
+  const log = $("#codeLog");
+
+  const spinner = document.createElement("div");
+  spinner.className = "msg assistant";
+  spinner.innerHTML = '<div class="body"><span class="think">Running orchestrator… (plan with Opus → build with DeepSeek → review with Opus)</span></div>';
+  log.appendChild(spinner);
+
+  try {
+    const body = JSON.stringify({
+      prompt,
+      max_plan: parseInt($("#codeMaxPlan").value) || 8000,
+      max_build: parseInt($("#codeMaxBuild").value) || 16000,
+      max_review: parseInt($("#codeMaxReview").value) || 8000,
+    });
+    const res = await fetch("/code/run", { method:"POST", headers:{"content-type":"application/json"}, body });
+    const data = await res.json();
+
+    spinner.remove();
+
+    if (data.error) {
+      const errEl = document.createElement("div");
+      errEl.className = "msg error";
+      errEl.innerHTML = `<div class="who">orchestrator</div><div class="body">Error: ${data.error}</div>`;
+      log.appendChild(errEl);
+      return;
+    }
+
+    // Routing info
+    const routeEl = document.createElement("div");
+    routeEl.className = "msg assistant";
+    routeEl.innerHTML = `<div class="who">routing</div><div class="body" style="font-size:12px;color:var(--dim)">
+      Plan: <b>${data.routing.plan}</b> · Build: <b>${data.routing.build}</b> · Review: <b>${data.routing.review}</b>
+      · Total cost: <b>$${data.total_cost_usd.toFixed(5)}</b>
+    </div>`;
+    log.appendChild(routeEl);
+
+    // Render each step
+    for (const key of ["plan","build","review"]) {
+      const step = data[key];
+      if (!step) continue;
+      const container = document.createElement("div");
+      container.className = "msg assistant";
+      let bodyHtml = `<strong>${key.toUpperCase()}</strong> — ${step.model} · ${step.provider}`;
+      if (step.cost_usd) bodyHtml += ` · $${step.cost_usd.toFixed(5)}`;
+      if (step.duration_s) bodyHtml += ` · ${step.duration_s}s`;
+      if (step.input_tokens) bodyHtml += ` · ${step.input_tokens}+${step.output_tokens} tok`;
+      if (step.body) {
+        bodyHtml += `<div style="margin-top:8px;white-space:pre-wrap;font-size:13px">${step.body.slice(0, 4000)}</div>`;
+        if (step.body.length > 4000) bodyHtml += `<div style="color:var(--dim);font-size:11px">… truncated (${step.body.length} total chars)</div>`;
+      }
+      container.innerHTML = `<div class="who">${key}</div><div class="body">${bodyHtml}</div>`;
+      log.appendChild(container);
+    }
+  } catch (err) {
+    spinner.remove();
+    const errEl = document.createElement("div");
+    errEl.className = "msg error";
+    errEl.innerHTML = `<div class="who">error</div><div class="body">Could not reach the gateway: ${err.message}</div>`;
+    log.appendChild(errEl);
+  } finally {
+    codeBusy = false; $("#codeRun").disabled = false;
+    refreshMeter(); if ($("#codeMeter")) refreshMeterInto("codeMeter");
+  }
+}
+$("#codeRun").addEventListener("click", runCode);
+
+async function refreshMeterInto(id) {
+  try {
+    const m = await (await fetch("/meter", { cache:"no-store" })).json();
+    $(`#${id}`).innerHTML = `session spend: <b>$${(m.totals.session_usd||0).toFixed(5)}</b>`
+      + ` · today $${(m.totals.today_usd||0).toFixed(5)} · cap $${m.caps.per_session_usd}/session`;
+  } catch {}
+}
 
 /* ---------- boot ---------- */
 (async () => { await loadModels(); applyMode("none"); restore(); refreshMeter(); $("#input").focus(); })();

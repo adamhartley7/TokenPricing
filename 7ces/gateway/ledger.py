@@ -1,11 +1,11 @@
-"""
+﻿"""
 Cost ledger — a small SQLite store recording the ACTUAL cost of every call, plus any pre-call
 refusals. Powers the running cost meter (per request / per session / per provider / per day).
 
 Definitions:
   * request  = one row.
   * session  = the gateway process lifetime (a session id is generated at startup). A client may
-               override it with the `x-7ces-session` header to group its own runs.
+               override it with the `x-7Cs-session` header to group its own runs.
   * day      = calendar day in UTC.
 """
 from __future__ import annotations

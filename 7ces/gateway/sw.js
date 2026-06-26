@@ -1,7 +1,7 @@
-// 7CE's service worker — caches the app shell for offline load. Only runs in a secure context
+﻿// 7C's service worker — caches the app shell for offline load. Only runs in a secure context
 // (localhost or HTTPS, e.g. over Tailscale). API/dynamic endpoints are always network-only so
 // chat replies, cost meter, and model list are never stale.
-const CACHE = "7ces-shell-v2";
+const CACHE = "7Cs-shell-v2";
 const SHELL = ["/chat", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 const NETWORK_ONLY = ["/deepseek", "/anthropic", "/meter", "/models", "/health"];
 

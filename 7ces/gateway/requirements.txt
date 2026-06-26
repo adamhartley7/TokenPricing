@@ -1,5 +1,5 @@
-# 7CE's spend-guard gateway — Python dependencies.
-# Install (PowerShell, from 7ces\gateway):  pip install -r requirements.txt
+﻿# 7C's spend-guard gateway — Python dependencies.
+# Install (PowerShell, from 7Cs\gateway):  pip install -r requirements.txt
 fastapi>=0.111
 uvicorn[standard]>=0.30
 httpx>=0.27
@@ -8,5 +8,5 @@ pytest>=8.0
 
 # OPTIONAL — exact DeepSeek pre-flight token counts. Without it the gateway uses DeepSeek's
 # published character heuristic (slightly conservative), which is fine for cap enforcement.
-# Drop the tokenizer.json into 7ces/gateway/vendor/deepseek_v3_tokenizer/ then install:
+# Drop the tokenizer.json into 7Cs/gateway/vendor/deepseek_v3_tokenizer/ then install:
 # tokenizers>=0.20

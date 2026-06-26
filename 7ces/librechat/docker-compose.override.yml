@@ -1,4 +1,4 @@
-# 7CE's — copy this file into the ROOT of your LibreChat clone (next to its docker-compose.yml),
+﻿# 7C's — copy this file into the ROOT of your LibreChat clone (next to its docker-compose.yml),
 # together with librechat.yaml from this folder. It mounts our config into the LibreChat container.
 # LibreChat reads librechat.yaml at /app/librechat.yaml. After copying, run:
 #   docker compose up -d

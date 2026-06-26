@@ -1,7 +1,7 @@
-{
-  "name": "7CE's",
-  "short_name": "7CEs",
-  "description": "7CE's — your spend-guarded multi-provider AI workbench",
+﻿{
+  "name": "7C's",
+  "short_name": "7Cs",
+  "description": "7C's — your spend-guarded multi-provider AI workbench",
   "start_url": "/chat",
   "scope": "/",
   "display": "standalone",

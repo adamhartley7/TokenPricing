@@ -1,7 +1,7 @@
-# 7CE's — LibreChat config. Copy this file into the ROOT of your LibreChat clone (next to its
+﻿# 7C's — LibreChat config. Copy this file into the ROOT of your LibreChat clone (next to its
 # docker-compose.yml), alongside the docker-compose.override.yml in this folder.
 #
-# It adds DeepSeek as an OpenAI-compatible custom endpoint whose baseURL is the 7CE's gateway, so
+# It adds DeepSeek as an OpenAI-compatible custom endpoint whose baseURL is the 7C's gateway, so
 # every DeepSeek call is cap-checked and metered. Claude is routed through the gateway separately,
 # via the ANTHROPIC_REVERSE_PROXY env var (see ../librechat/.env.example) — no block needed here.
 #

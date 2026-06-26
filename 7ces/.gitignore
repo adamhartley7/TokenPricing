@@ -1,4 +1,4 @@
-# Standalone .gitignore for the 7CE's app (used when 7ces/ is its own repo). Paths are relative to
+﻿# Standalone .gitignore for the 7C's app (used when 7Cs/ is its own repo). Paths are relative to
 # this folder, so it also applies inside the parent TokenPricing repo.
 
 # Secrets — keys live ONLY in these (never commit them).

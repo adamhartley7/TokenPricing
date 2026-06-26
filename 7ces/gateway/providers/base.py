@@ -1,4 +1,4 @@
-"""
+﻿"""
 Provider adapter interface. A provider knows how to talk to one upstream API:
   * where to send the request and how to authenticate (with the gateway's OWN key, never the
     client's — the real key never leaves the gateway's .env),
@@ -89,9 +89,9 @@ class Provider:
 
 
 def coerce_per_request_cap(headers: dict[str, str]) -> float | None:
-    """Honor an optional `x-7ces-cap` header (USD) as a per-request cap override."""
+    """Honor an optional `x-7Cs-cap` header (USD) as a per-request cap override."""
     for k, v in headers.items():
-        if k.lower() == "x-7ces-cap":
+        if k.lower() == "x-7Cs-cap":
             try:
                 val = float(v)
                 return val if val > 0 else None
