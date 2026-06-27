@@ -214,19 +214,21 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
     SYS_REVIEW = "Score out of 100. List every issue: line numbers, missing edge cases, integration gaps. FIX-FIRST if any issue."
     SYS_FIX = "Fix EVERY issue from the review. Produce the corrected file in full."
 
-    build_fn = call_anthropic if use_opus else call_deepseek
-    build_model = "claude-opus-4-8" if use_opus else "deepseek-v4-pro"
+    # ALL builds use Opus. DeepSeek quality ceiling is ~50. Opus starts at 70+.
+    build_model = "claude-opus-4-8"
+    BUILD_TOK = 32000  # max for Opus — single file, fully complete
+    FIX_TOK = 16384
     steps = []; total = 0.0
 
-    # 1. Design (Opus)
+    # 1. Design (Opus, detailed — architecture mistakes here propagate)
     r = await call_anthropic(session, "claude-opus-4-8", SYS_DESIGN,
-        [{"role": "user", "content": f"Context:\n{context[:2000]}\n\nDesign:\n{task_desc}"}], 4096, "design")
+        [{"role": "user", "content": f"Context (files this must integrate with):\n{context[:3000]}\n\nDesign this module. Be SPECIFIC: exact function signatures with parameter types, return types, every edge case to handle, error states, and how it connects to existing files."}], 8192, "design")
     steps.append(("design", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
-    # 2. Build
-    r = await build_fn(session, build_model, SYS_BUILD,
-        [{"role": "user", "content": f"Context:\n{context[:2000]}\n\nDesign:\n{r['body'][:3000]}\n\nBuild EXACTLY what the design specifies. ONE file."}], 16384, "build")
+    # 2. Build (Opus, 32K tokens — ONE complete file, no excuses)
+    r = await call_anthropic(session, build_model, SYS_BUILD,
+        [{"role": "user", "content": f"Context:\n{context[:3000]}\n\nDesign spec:\n{r['body'][:4000]}\n\nBuild EXACTLY what the design specifies. ONE complete file. Every edge case handled. No placeholders. No truncation accepted."}], BUILD_TOK, "build")
     steps.append(("build", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
@@ -236,9 +238,9 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
     steps.append(("review", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
-    # 4. Fix (same model as build)
-    r = await build_fn(session, build_model, SYS_FIX,
-        [{"role": "user", "content": f"Fix every issue:\n{steps[2][1].get('body','')[:3000]}\n\nOriginal:\n{steps[1][1].get('body','')[:2000]}"}], 8192, "fix")
+    # 4. Fix (Opus, 16K tokens)
+    r = await call_anthropic(session, "claude-opus-4-8", SYS_FIX,
+        [{"role": "user", "content": f"Fix every issue:\n{steps[2][1].get('body','')[:3000]}\n\nOriginal:\n{steps[1][1].get('body','')[:2000]}"}], FIX_TOK, "fix")
     steps.append(("fix", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
@@ -261,8 +263,8 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
             break
         if q_cycle < 3:
             print(f"  [score {score}/100, re-fixing...]", end="", flush=True)
-            r = await build_fn(session, build_model, SYS_FIX,
-                [{"role": "user", "content": f"Fix EVERY issue:\n{r.get('body','')[:3000]}\n\nCurrent code:\n{final[:2000]}"}], 8192, f"fix-q{q_cycle}")
+            r = await call_anthropic(session, "claude-opus-4-8", SYS_FIX,
+                [{"role": "user", "content": f"Fix EVERY issue:\n{r.get('body','')[:3000]}\n\nCurrent code:\n{final[:2000]}"}], FIX_TOK, f"fix-q{q_cycle}")
             steps.append((f"fix_q{q_cycle}", r)); total += r.get("cost", 0)
             if r.get("error"): break
             final = r.get("body", "") or final
