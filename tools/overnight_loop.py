@@ -242,18 +242,38 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
     steps.append(("fix", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
-    # 5. Final review (Opus)
+    # 5. Quality loop: fix → review → repeat until score >= 85 (max 3 extra cycles)
     final = r.get("body", "") or steps[1][1].get("body", "")
-    r = await call_anthropic(session, "claude-opus-4-8", SYS_REVIEW,
-        [{"role": "user", "content": f"Final review. All issues fixed?\nIssues:\n{steps[2][1].get('body','')[:2000]}\n\nFixed output:\n{final[:4000]}"}], 2048, "final")
-    steps.append(("final_review", r)); total += r.get("cost", 0)
+    best_score = 0; quality_cycles = 0
+    for q_cycle in range(4):  # up to 3 extra fix-review cycles
+        r = await call_anthropic(session, "claude-opus-4-8", SYS_REVIEW,
+            [{"role": "user", "content": f"Review. Score out of 100.\nTarget: 85-95. Be critical.\n\nOutput to review:\n{final[:4000]}"}], 2048, f"review-q{q_cycle}")
+        steps.append((f"review_q{q_cycle}", r)); total += r.get("cost", 0)
+        if r.get("error"): break
+
+        # Extract score
+        m = re.search(r"(\d{1,3})\s*/?\s*100", r.get("body", ""))
+        score = int(m.group(1)) if m else 0
+        best_score = max(best_score, score)
+        quality_cycles = q_cycle
+
+        if score >= 85:
+            break
+        if q_cycle < 3:
+            print(f"  [score {score}/100, re-fixing...]", end="", flush=True)
+            r = await build_fn(session, build_model, SYS_FIX,
+                [{"role": "user", "content": f"Fix EVERY issue:\n{r.get('body','')[:3000]}\n\nCurrent code:\n{final[:2000]}"}], 8192, f"fix-q{q_cycle}")
+            steps.append((f"fix_q{q_cycle}", r)); total += r.get("cost", 0)
+            if r.get("error"): break
+            final = r.get("body", "") or final
 
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, step in steps:
         if step.get("body"):
             (out_dir / f"{name}.md").write_text(step["body"], encoding="utf-8")
 
-    return {"steps": steps, "cost": total, "error": None, "build_body": final}
+    return {"steps": steps, "cost": total, "error": None, "build_body": final,
+            "best_score": best_score, "quality_cycles": quality_cycles}
 
 # --- ATOMIC SUMMARIES (Task 4) ---
 
@@ -450,12 +470,12 @@ async def main():
                     break
             else:
                 completed += 1
-                # Extract score
-                score = "?"
-                for name, step in result["steps"]:
-                    if name == "final_review":
-                        m = re.search(r"(\d{1,3})\s*/?\s*100", step.get("body", ""))
-                        if m: score = m.group(1); break
+                # Extract score from quality loop
+                best = result.get("best_score", 0)
+                qc = result.get("quality_cycles", 0)
+                score = str(best) if best > 0 else "?"
+                if qc > 0:
+                    score = f"{score} ({qc} re-fix)"
                 # Accumulate context
                 build_body = result.get("build_body", "")
                 if build_body:
