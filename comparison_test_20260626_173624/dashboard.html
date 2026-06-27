@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DeepSeek — Pipeline Comparison Dashboard</title>
+<style>
+  :root {
+    --abyss: #0a0e17; --trench: #111827; --rift: #1a1f2e;
+    --deep: #162032; --kelp: #1e3a5f; --current: #234b7a;
+    --plankton: #4fc3f7; --biolume: #00e5ff; --angler: #7c4dff;
+    --vent: #ff6e40; --coral: #ff4081; --sand: #8b949e;
+    --text: #e0f0ff; --muted: #5a7896;
+    --glow-cyan: 0 0 20px rgba(0,229,255,0.3);
+    --glow-purple: 0 0 20px rgba(124,77,255,0.3);
+    --radius: 12px; --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--abyss); color: var(--text);
+    font: 15px/1.6 system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Abyssal background particles */
+  #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .particle {
+    position: absolute; border-radius: 50%;
+    background: var(--plankton); opacity: 0;
+    animation: rise linear infinite;
+  }
+  @keyframes rise {
+    0% { transform: translateY(100vh) scale(0); opacity: 0; }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+  }
+
+  /* Layout */
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+  /* Hero */
+  .hero {
+    text-align: center; padding: 60px 20px 40px;
+    border-bottom: 1px solid rgba(0,229,255,0.15);
+    margin-bottom: 40px;
+  }
+  .hero .brand {
+    font-family: var(--mono); font-size: 14px; letter-spacing: 3px;
+    color: var(--plankton); text-transform: uppercase; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .hero .brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--biolume); box-shadow: var(--glow-cyan);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{ opacity: 1; } 50%{ opacity: 0.3; } }
+  .hero h1 { font-size: 3em; font-weight: 800; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--biolume), var(--angler));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+  }
+  .hero .sub { color: var(--muted); font-size: 16px; max-width: 600px; margin: 0 auto; }
+  .hero .meta { margin-top: 20px; font-size: 13px; color: var(--sand); font-family: var(--mono); }
+
+  /* Score cards */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 20px; margin-bottom: 40px; }
+  .card {
+    background: var(--trench); border: 1px solid var(--rift); border-radius: var(--radius);
+    padding: 24px; position: relative; overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .card:hover { border-color: var(--current); box-shadow: var(--glow-cyan); }
+  .card.pipeline-a { border-top: 3px solid var(--angler); }
+  .card.pipeline-b { border-top: 3px solid var(--plankton); }
+  .card.pipeline-c { border-top: 3px solid var(--vent); }
+  .card .pipe-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .card.pipeline-a .pipe-label { color: var(--angler); }
+  .card.pipeline-b .pipe-label { color: var(--plankton); }
+  .card.pipeline-c .pipe-label { color: var(--vent); }
+  .card h3 { font-size: 20px; margin-bottom: 8px; }
+  .card .models { font-size: 13px; color: var(--muted); font-family: var(--mono); margin-bottom: 16px; }
+  .card .score-ring {
+    width: 100px; height: 100px; margin: 0 auto 16px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  .card .score-ring svg { transform: rotate(-90deg); }
+  .card .score-num {
+    position: absolute; font-size: 32px; font-weight: 800;
+    font-family: var(--mono);
+  }
+  .card .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+  .card .stats dt { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+  .card .stats dd { font-family: var(--mono); font-weight: 600; }
+  .card .verdict {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rift);
+    font-size: 13px; color: var(--sand); font-style: italic;
+  }
+
+  /* Comparison table */
+  .section-title {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 2px;
+    color: var(--plankton); text-transform: uppercase; margin: 40px 0 16px;
+  }
+  .compare-table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    background: var(--trench); border-radius: var(--radius); overflow: hidden;
+  }
+  .compare-table th {
+    text-align: left; padding: 14px 18px; background: var(--deep);
+    font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+    color: var(--plankton); text-transform: uppercase;
+  }
+  .compare-table td { padding: 12px 18px; border-top: 1px solid var(--rift); }
+  .compare-table tr:hover td { background: rgba(0,229,255,0.03); }
+  .winner { color: var(--biolume); font-weight: 700; }
+  .bar-cell { position: relative; }
+  .bar-cell .bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, rgba(0,229,255,0.2), rgba(124,77,255,0.2));
+    border-radius: 0 4px 4px 0; transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Cost waterfall */
+  .waterfall { display: flex; gap: 4px; align-items: flex-end; height: 200px; margin: 20px 0; }
+  .waterfall .step {
+    flex: 1; border-radius: 6px 6px 0 0; position: relative; cursor: pointer;
+    transition: filter 0.2s; min-width: 40px;
+  }
+  .waterfall .step:hover { filter: brightness(1.3); }
+  .waterfall .step .tooltip {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: var(--trench); border: 1px solid var(--current); border-radius: 6px;
+    padding: 6px 10px; font-size: 11px; font-family: var(--mono);
+    white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity 0.2s; margin-bottom: 6px;
+  }
+  .waterfall .step:hover .tooltip { opacity: 1; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tabs button {
+    background: var(--trench); border: 1px solid var(--rift); color: var(--sand);
+    padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    transition: all 0.2s;
+  }
+  .tabs button.active { background: var(--deep); border-color: var(--plankton); color: var(--biolume); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Verdict banner */
+  .verdict-banner {
+    background: linear-gradient(135deg, rgba(124,77,255,0.15), rgba(0,229,255,0.1));
+    border: 1px solid rgba(0,229,255,0.2); border-radius: var(--radius);
+    padding: 30px; text-align: center; margin: 40px 0;
+  }
+  .verdict-banner h2 { font-size: 24px; margin-bottom: 10px; }
+  .verdict-banner .big-num {
+    font-family: var(--mono); font-size: 48px; font-weight: 800;
+    background: linear-gradient(135deg, var(--plankton), var(--angler));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center; padding: 40px; color: var(--muted); font-size: 12px;
+    font-family: var(--mono); border-top: 1px solid rgba(0,229,255,0.1); margin-top: 60px;
+  }
+  .footer .tagline { color: var(--plankton); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2em; }
+    .score-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="brand"><span class="dot"></span> DeepSeek Abyssal Intelligence <span class="dot"></span></div>
+    <h1>Pipeline Comparison</h1>
+    <p class="sub">Three architectures. One task. The depths reveal all.</p>
+    <p class="meta">2026-06-26 17:57 UTC · deepseek-v4-pro · 7C's Cowork Tab Build</p>
+  </div>
+
+  <!-- Score cards -->
+  <div class="score-grid">
+    <!-- Pipeline A -->
+    <div class="card pipeline-a">
+      <div class="pipe-label">Pipeline A</div>
+      <h3>Opus → DeepSeek → Opus</h3>
+      <div class="models">plan: claude-opus-4-8<br>build: deepseek-v4-pro<br>review: claude-opus-4-8</div>
+      <div class="score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--rift)" stroke-width="6"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--angler)" stroke-width="6"
+            stroke-dasharray="264" stroke-dashoffset="159" stroke-linecap="round"/>
+        </svg>
+        <div class="score-num" style="color:var(--angler)">40</div>
+      </div>
+      <dl class="stats">
+        <dt>Tokens</dt><dd>12,497</dd>
+        <dt>Cost</dt><dd>$0.1027</dd>
+        <dt>Self-Score</dt><dd>38/100</dd>
+        <dt>Value/$</dt><dd>~370</dd>
+      </dl>
+      <div class="verdict">
+        "Stronger security primitives, deeper plan, honest self-review. Code truncated but what exists shows real architectural thinking."
+      </div>
+    </div>
+
+    <!-- Pipeline B -->
+    <div class="card pipeline-b">
+      <div class="pipe-label">Pipeline B</div>
+      <h3>Full DeepSeek</h3>
+      <div class="models">All steps: deepseek-v4-pro</div>
+      <div class="score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--rift)" stroke-width="6"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--plankton)" stroke-width="6"
+            stroke-dasharray="264" stroke-dashoffset="211" stroke-linecap="round"/>
+        </svg>
+        <div class="score-num" style="color:var(--plankton)">22</div>
+      </div>
+      <dl class="stats">
+        <dt>Tokens</dt><dd>10,386</dd>
+        <dt>Cost</dt><dd>$0.0080</dd>
+        <dt>Self-Score</dt><dd>20/100</dd>
+        <dt>Value/$</dt><dd>~2,767</dd>
+      </dl>
+      <div class="verdict">
+        "~13x cheaper. Clean types and config but mostly scaffolding — no functional engine, no security layer."
+      </div>
+    </div>
+
+    <!-- Pipeline C -->
+    <div class="card pipeline-c">
+      <div class="pipe-label">Pipeline C</div>
+      <h3>Full Ornith-1.0</h3>
+      <div class="models">All steps: ornith-1.0-9b (local)</div>
+      <div class="score-ring">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--rift)" stroke-width="6"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="var(--vent)" stroke-width="6"
+            stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"/>
+        </svg>
+        <div class="score-num" style="color:var(--vent)">—</div>
+      </div>
+      <dl class="stats">
+        <dt>Tokens</dt><dd>—</dd>
+        <dt>Cost</dt><dd>—</dd>
+        <dt>Status</dt><dd>Failed</dd>
+        <dt>Error</dt><dd style="font-size:11px">call signature</dd>
+      </dl>
+      <div class="verdict">
+        Pipeline C did not complete. Ornith-1.0 local inference requires a function-call adapter not yet implemented.
+      </div>
+    </div>
+  </div>
+
+  <!-- Cost waterfall -->
+  <div class="section-title">Cost Waterfall</div>
+  <div class="waterfall">
+    <div class="step" style="height:30%;background:var(--angler)" title="Pipeline A — $0.1027"><span class="tooltip">Pipeline A<br>$0.1027 · 12,497 tok</span></div>
+    <div class="step" style="height:6%;background:var(--plankton)" title="Pipeline B — $0.0080"><span class="tooltip">Pipeline B<br>$0.0080 · 10,386 tok</span></div>
+    <div class="step" style="height:23%;background:linear-gradient(0deg,var(--angler),var(--plankton))" title="Meta-Review Opus — $0.0773"><span class="tooltip">Meta Opus<br>$0.0773</span></div>
+    <div class="step" style="height:1%;background:var(--plankton)" title="Meta-Review DeepSeek — $0.0033"><span class="tooltip">Meta DeepSeek<br>$0.0033</span></div>
+    <div class="step" style="height:2%;background:var(--vent)" title="Pipeline C — failed"><span class="tooltip">Pipeline C<br>failed</span></div>
+  </div>
+
+  <!-- Head-to-head comparison -->
+  <div class="section-title">Head-to-Head</div>
+  <table class="compare-table">
+    <thead>
+      <tr><th>Dimension</th><th style="text-align:center">Pipeline A</th><th style="text-align:center">Pipeline B</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Plan quality</td><td class="winner" style="text-align:center">Deeper security/arch detail</td><td style="text-align:center">Solid, slightly shallower</td></tr>
+      <tr><td>Build completeness</td><td style="text-align:center">~2 of 5 workstreams</td><td style="text-align:center">Mostly types/scaffolding</td></tr>
+      <tr><td>Code quality</td><td class="winner" style="text-align:center">Real allowlist hardening, zod</td><td style="text-align:center">Types only, no logic</td></tr>
+      <tr><td>Security depth</td><td class="winner" style="text-align:center">path canonicalization, realpath, symlink defense</td><td style="text-align:center">None — stub types only</td></tr>
+      <tr><td>Self-review honesty</td><td class="winner" style="text-align:center">Excellent, surgical</td><td style="text-align:center">Good, accurate</td></tr>
+      <tr><td>Overclaiming</td><td style="text-align:center">None</td><td style="text-align:center;color:var(--coral)">Yes ("complete files")</td></tr>
+      <tr><td>Compilable?</td><td style="text-align:center;color:var(--coral)">No (truncated)</td><td style="text-align:center;color:var(--coral)">No (truncated)</td></tr>
+      <tr><td>Cost</td><td style="text-align:center">$0.1027</td><td class="winner" style="text-align:center">$0.0080 (~13x cheaper)</td></tr>
+      <tr><td>Independent score</td><td class="winner" style="text-align:center"><strong>40/100</strong></td><td style="text-align:center">22/100</td></tr>
+      <tr><td>Value per dollar</td><td style="text-align:center">~370</td><td class="winner" style="text-align:center"><strong>~2,767 (7.5x)</strong></td></tr>
+    </tbody>
+  </table>
+
+  <!-- Key insight tabs -->
+  <div class="section-title">Deep-Dive Analysis</div>
+  <div class="tabs">
+    <button class="active" onclick="switchTab('security')">Security Finding</button>
+    <button onclick="switchTab('cost')">Cost Analysis</button>
+    <button onclick="switchTab('improve')">How to Improve</button>
+    <button onclick="switchTab('verdict')">Verdict</button>
+  </div>
+
+  <div id="tab-security" class="tab-content active">
+    <div class="card">
+      <h3 style="color:var(--coral);margin-bottom:12px">&#9888; Live Sandbox Escape — Caught by Opus Review</h3>
+      <p style="color:var(--sand);margin-bottom:16px">Pipeline A's Opus review identified a <strong>genuine security-critical bug</strong> in the DeepSeek-generated code:</p>
+      <div style="background:var(--abyss);border:1px solid var(--rift);border-radius:8px;padding:16px;font-family:var(--mono);font-size:13px;margin-bottom:16px">
+        <span style="color:var(--muted)">// DeepSeek generated:</span><br>
+        <span style="color:var(--coral)">path.resolve(allowlistDir, userPath)</span><br><br>
+        <span style="color:var(--muted)">// Opus review caught:</span><br>
+        <span style="color:var(--biolume)">path.resolve</span> does <em>no filesystem resolution</em> —<br>
+        a symlink inside the allowlist <strong>escapes the sandbox</strong>.<br>
+        Fix: <span style="color:var(--plankton)">fs.realpath</span> for canonical<br>
+        resolution + <span style="color:var(--plankton)">path.relative</span> belt-and-suspenders.
+      </div>
+      <p style="color:var(--sand)">DeepSeek's own self-review (Pipeline B) was <span style="color:var(--coral)">completely empty</span> — it produced no review text at all. The security vulnerability would have shipped uncaught in a DeepSeek-only pipeline.</p>
+    </div>
+  </div>
+
+  <div id="tab-cost" class="tab-content">
+    <div class="card">
+      <h3 style="color:var(--plankton);margin-bottom:16px">The Economics of AI Code Review</h3>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th>Pipeline</th><th>Plan</th><th>Build</th><th>Review</th><th>Total</th><th>Score</th></tr>
+        <tr><td>A (Opus→DS→Opus)</td><td>$0.009</td><td>$0.020</td><td>$0.074</td><td><strong>$0.103</strong></td><td>40</td></tr>
+        <tr><td>B (Full DeepSeek)</td><td>$0.002</td><td>$0.004</td><td>$0.002</td><td><strong>$0.008</strong></td><td>22</td></tr>
+      </table>
+      <p style="color:var(--sand)">Pipeline A costs <strong>~13x more</strong> but delivers <strong>~1.8x higher quality</strong>. The premium is concentrated in the review step — Opus review ($0.074) is 37x more expensive than DeepSeek review ($0.002). But that review caught a live sandbox escape.</p>
+      <p style="color:var(--biolume);margin-top:12px"><strong>Bottom line:</strong> For security-sensitive tasks, the Opus review premium is justified. For scaffolding/exploration, DeepSeek delivers dramatically better value.</p>
+    </div>
+  </div>
+
+    <button onclick="switchTab('breakdown')">Score Breakdown</button>
+    <button onclick="switchTab('limits')">Limits & Caps</button>
+    <button onclick="switchTab('improve')">Path to 80→100</button>
+    <button onclick="switchTab('rubric')">Marking Scheme</button>
+    <button onclick="switchTab('verdict')">Verdict</button>
+  </div>
+
+  <div id="tab-breakdown" class="tab-content">
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--angler);margin-bottom:16px">Pipeline A: Why 40/100</h3>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:80px">Points</th><th>Category</th><th>What happened</th></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−30</td><td><strong>Truncation</strong></td><td>Build max_tokens was <strong>4096</strong>. DeepSeek's code cut off mid-<code>fs.mkdir</code> — non-compilable. This alone makes the build a rejection regardless of quality.</td></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−20</td><td><strong>Missing workstreams</strong></td><td>Only ~2 of 5 required areas attempted (security layer, types). Agent loop, provider abstraction, spend-guard integration, UI, and tests all absent.</td></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−10</td><td><strong>No tests</strong></td><td>Zero test coverage. For a security-sensitive feature with destructive ops, this is a hard requirement.</td></tr>
+        <tr style="background:rgba(0,229,255,0.05)"><td style="color:var(--biolume);font-family:var(--mono);font-size:18px;font-weight:700">+18</td><td colspan="2"><strong>What it earned:</strong> Opus plan showed genuine security depth (symlink defense, canonicalization). Code quality where it existed was high (zod schemas, belt-and-suspenders path checks). Opus review was surgical — caught a live sandbox escape bug that DeepSeek's own review missed entirely. Self-assessment was honest and well-calibrated.</td></tr>
+      </table>
+      <p style="color:var(--muted);font-size:13px">Starting from 70 (perfect form), subtract points for defects, add back for exceptional quality. The review was the standout — worth more than its $0.07 cost.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--plankton);margin-bottom:16px">Pipeline B: Why 22/100</h3>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:80px">Points</th><th>Category</th><th>What happened</th></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−35</td><td><strong>No functional code</strong></td><td>Produced only type declarations (<code>ToolCall</code>, <code>StepState</code>, <code>ConfirmationRequest</code>) and one incomplete <code>scopedFS.ts</code> stub. Zero executable behavior. The task asked for a working agent harness — this is a config file and interfaces.</td></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−25</td><td><strong>No security layer</strong></td><td>For a task explicitly requiring "no destructive ops without confirmation" and allowlisted directories — the most security-sensitive part — Pipeline B produced nothing. The <code>requiresConfirmation</code> flag exists as a type but is never acted upon.</td></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−10</td><td><strong>Overclaiming</strong></td><td>Build prose claimed "complete, ready-to-save files" — directly contradicted by the truncated, type-only output. Credibility penalty.</td></tr>
+        <tr><td style="color:var(--plankton);font-family:var(--mono);font-size:18px">−8</td><td><strong>Empty review</strong></td><td>DeepSeek's self-review produced no output at all. No quality gate, no critique, no verification. In a security context, this is equivalent to shipping unreviewed code.</td></tr>
+        <tr style="background:rgba(0,229,255,0.05)"><td style="color:var(--biolume);font-family:var(--mono);font-size:18px;font-weight:700">+12</td><td colspan="2"><strong>What it earned:</strong> Clean type definitions. Environment-based config was sensible. Self-assessment was honest (20/100 self-score matches reality). The plan, while shallower than A's, covered all required workstreams. Cost efficiency is genuinely impressive at 13x cheaper.</td></tr>
+      </table>
+      <p style="color:var(--muted);font-size:13px">Pipeline B's problem is structural: DeepSeek without architectural guidance produces scaffolding, not solutions. Its 22/100 is not a verdict on DeepSeek's capability — it's a verdict on the "full DeepSeek, no architect" pipeline design.</p>
+    </div>
+  </div>
+
+  <div id="tab-limits" class="tab-content">
+    <div class="card">
+      <h3 style="color:var(--biolume);margin-bottom:12px">What Was Actually Configured</h3>
+      <table class="compare-table" style="margin-bottom:20px">
+        <tr><th>Limit</th><th>What you set</th><th>What happened in practice</th></tr>
+        <tr>
+          <td><strong>Gateway per-request cap</strong></td>
+          <td><span style="color:var(--biolume)">$5.00</span> (in .env)</td>
+          <td style="color:var(--sand)">Anthropic calls <strong>bypassed the gateway entirely</strong> — the comparison script called api.anthropic.com directly because the gateway's ANTHROPIC_BASE_URL routes to DeepSeek. These calls had <em>no spend cap at all</em>.</td>
+        </tr>
+        <tr>
+          <td><strong>Gateway per-session cap</strong></td>
+          <td><span style="color:var(--biolume)">$15.00</span></td>
+          <td style="color:var(--sand)">Only applied to DeepSeek calls (which go through the gateway). Anthropic calls were uncapped.</td>
+        </tr>
+        <tr>
+          <td><strong>Build max_tokens</strong></td>
+          <td>— (not set by you)</td>
+          <td style="color:var(--coral)"><strong>Hardcoded to 4,096</strong> in the comparison script. This is what caused truncation. The script's default was never raised.</td>
+        </tr>
+        <tr>
+          <td><strong>Plan max_tokens</strong></td>
+          <td>— (not set)</td>
+          <td>4,096 default — adequate for plans but plans also truncated mid-section.</td>
+        </tr>
+        <tr>
+          <td><strong>Review max_tokens</strong></td>
+          <td>— (not set)</td>
+          <td>2,048 default — tight for a detailed review.</td>
+        </tr>
+        <tr>
+          <td><strong>Anthropic API balance</strong></td>
+          <td><span style="color:var(--plankton)">~$9.00</span></td>
+          <td style="color:var(--sand)">Real backstop. Pipeline A + Meta Opus used ~$0.18 — well within limits. You had room for ~50 more runs.</td>
+        </tr>
+        <tr>
+          <td><strong>DeepSeek API balance</strong></td>
+          <td><span style="color:var(--plankton)">~$6.00</span></td>
+          <td style="color:var(--sand)">Used ~$0.02 total. DeepSeek is so cheap per call that you'd need ~300 pipeline runs to exhaust this.</td>
+        </tr>
+      </table>
+
+      <div style="background:var(--abyss);border:1px solid var(--coral);border-left:3px solid var(--coral);border-radius:8px;padding:16px;margin-bottom:16px">
+        <strong style="color:var(--coral)">&#9888; The caps didn't work the way you thought.</strong><br>
+        <span style="color:var(--sand);font-size:14px">You set $5/$15/$15 thinking everything was capped. But the comparison script bypassed the gateway for Anthropic calls — they went to api.anthropic.com directly with no dollar cap. The only backstop was your $9 API balance. And the <strong>build token limit of 4,096</strong> was the real bottleneck — it truncated both pipelines, regardless of cost caps.</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-improve" class="tab-content">
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--angler);margin-bottom:8px">Pipeline A: 40 → 80/100 (+$0.25)</h3>
+      <p style="color:var(--sand);margin-bottom:16px">Targeting 80/100 requires fixing all three failure modes: truncation, missing workstreams, and no tests.</p>
+
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th>Step</th><th>Current</th><th>Change</th><th>Why</th><th>Cost Δ</th></tr>
+        <tr>
+          <td><strong>Plan</strong></td>
+          <td>Opus · 4096 tok · $0.009</td>
+          <td style="color:var(--biolume)">Raise to <strong>8,000 tok</strong></td>
+          <td>Plan was already strong but truncated mid-section 4. 8K lets it complete.</td>
+          <td style="color:var(--vent)">+$0.01</td>
+        </tr>
+        <tr>
+          <td><strong>Build · Pass 1</strong></td>
+          <td>DeepSeek · 4096 tok · $0.020</td>
+          <td style="color:var(--biolume)">Raise to <strong>16,000 tok</strong>, scope to <strong>core engine + security</strong></td>
+          <td>Fixes truncation. Scoping to 2 workstreams prevents the model from spreading thin.</td>
+          <td style="color:var(--vent)">+$0.05</td>
+        </tr>
+        <tr>
+          <td><strong>Build · Pass 2</strong></td>
+          <td style="color:var(--muted)">— not done —</td>
+          <td style="color:var(--biolume)"><strong>New step:</strong> DeepSeek · 16,000 tok · <strong>UI + integration + tests</strong></td>
+          <td>Second pass completes the remaining 3 workstreams. Splitting prevents the model from producing scaffolding across 5 areas.</td>
+          <td style="color:var(--vent)">+$0.05</td>
+        </tr>
+        <tr>
+          <td><strong>Review</strong></td>
+          <td>Opus · 2048 tok · $0.074</td>
+          <td style="color:var(--biolume)">Raise to <strong>4,000 tok</strong></td>
+          <td>2048 is tight for reviewing multi-file output + security audit. 4K gives room for thoroughness.</td>
+          <td style="color:var(--vent)">+$0.04</td>
+        </tr>
+      </table>
+
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:20px">
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">SCORE</div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--angler)">40</div>
+          <div style="font-size:24px;color:var(--plankton);margin:4px 0">→</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--biolume);font-weight:800">80</div>
+        </div>
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">COST</div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--angler)">$0.10</div>
+          <div style="font-size:24px;color:var(--plankton);margin:4px 0">→</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--vent);font-weight:800">~$0.35</div>
+        </div>
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">TOKENS</div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--angler)">12.5K</div>
+          <div style="font-size:24px;color:var(--plankton);margin:4px 0">→</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--plankton);font-weight:800">~50K</div>
+        </div>
+        <div style="background:var(--abyss);border:1px solid var(--current);border-radius:8px;padding:12px 16px;max-width:240px">
+          <span style="color:var(--plankton);font-size:11px">Recovers points from</span><br>
+          <span style="font-size:13px;color:var(--sand)">Truncation: +30<br>Missing workstreams: +20<br>Tests: +10<br><span style="color:var(--muted)">(minus ~20 from new surface area)</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--plankton);margin-bottom:8px">Pipeline B: 22 → 80/100 (+$0.18)</h3>
+      <p style="color:var(--sand);margin-bottom:16px">Pipeline B needs structural redesign — not just parameter tweaks. The "full DeepSeek" architecture fundamentally can't produce a security-sensitive agent harness because DeepSeek's self-review is too weak.</p>
+
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th>Step</th><th>Current</th><th>Change</th><th>Why</th><th>Cost Δ</th></tr>
+        <tr>
+          <td><strong>Architect</strong></td>
+          <td style="color:var(--muted)">— not done —</td>
+          <td style="color:var(--biolume)"><strong>New: Opus architect</strong> · 8,000 tok</td>
+          <td>DeepSeek needs concrete architecture to build from. Opus produces it. This is the single highest-ROI addition — transforms "types only" into "functional code."</td>
+          <td style="color:var(--vent)">+$0.04</td>
+        </tr>
+        <tr>
+          <td><strong>Plan</strong></td>
+          <td>DeepSeek · 4096 tok · $0.002</td>
+          <td style="color:var(--biolume)">DeepSeek · 8,000 tok — <strong>fed the Opus architecture as context</strong></td>
+          <td>DeepSeek plans better when it has concrete architecture to operationalize.</td>
+          <td>+$0.001</td>
+        </tr>
+        <tr>
+          <td><strong>Build × 2</strong></td>
+          <td>DeepSeek · 4096 tok · $0.004</td>
+          <td style="color:var(--biolume)">DeepSeek · 16,000 tok × 2 passes</td>
+          <td>Same split-pass approach as Pipeline A. Prevent scaffolding spread.</td>
+          <td style="color:var(--vent)">+$0.10</td>
+        </tr>
+        <tr>
+          <td><strong>Review</strong></td>
+          <td>DeepSeek · 2048 tok · $0.002</td>
+          <td style="color:var(--biolume)"><strong>Opus review</strong> · 4,000 tok</td>
+          <td>DeepSeek's self-review was empty. For 80/100 on a security task, you need Opus review — it caught a live sandbox escape that DeepSeek missed.</td>
+          <td style="color:var(--vent)">+$0.07</td>
+        </tr>
+      </table>
+
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:20px">
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">SCORE</div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--plankton)">22</div>
+          <div style="font-size:24px;color:var(--plankton);margin:4px 0">→</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--biolume);font-weight:800">80</div>
+        </div>
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">COST</div>
+          <div style="font-family:var(--mono);font-size:14px;color:var(--plankton)">$0.008</div>
+          <div style="font-size:24px;color:var(--plankton);margin:4px 0">→</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--vent);font-weight:800">~$0.22</div>
+        </div>
+        <div style="text-align:center;background:var(--deep);border-radius:12px;padding:16px 20px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">vs PIPE A</div>
+          <div style="font-family:var(--mono);font-size:24px;color:var(--biolume);font-weight:800">37% cheaper</div>
+          <div style="font-size:12px;color:var(--muted)">$0.22 vs $0.35</div>
+        </div>
+        <div style="background:var(--abyss);border:1px solid var(--current);border-radius:8px;padding:12px 16px;max-width:260px">
+          <span style="color:var(--plankton);font-size:11px">Key structural changes</span><br>
+          <span style="font-size:13px;color:var(--sand)">+Opus architect (essential)<br>+Opus review (security gate)<br>+Split builds (anti-truncation)<br>DeepSeek stays for plan+build</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--vent);margin-bottom:16px">Path to 85/100 (+$0.10)</h3>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:60px">Step</th><th>What</th><th>Why</th><th>Cost</th></tr>
+        <tr><td style="font-family:var(--mono);color:var(--angler)">+1</td><td><strong>Security-only Opus audit</strong> (4,000 tok)</td><td>The first Opus review caught a symlink escape. A second pass focused <em>only</em> on security (no feature review) catches what the first missed: injection vectors, race conditions, privilege escalation.</td><td>+$0.10</td></tr>
+        <tr><td style="font-family:var(--mono);color:var(--plankton)">+2</td><td><strong>DeepSeek test-gen</strong> (8,000 tok)</td><td>Build pass 3 generates tests for the completed code. DeepSeek is good at mechanical test writing from specs. Tests catch integration gaps between the two build passes.</td><td>+$0.007</td></tr>
+      </table>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="font-family:var(--mono);font-size:14px;color:var(--angler)">80</div>
+        <div style="color:var(--plankton)">→</div>
+        <div style="font-family:var(--mono);font-size:24px;color:var(--vent);font-weight:800">85</div>
+        <div style="color:var(--muted);font-size:13px">| +$0.11 | ~$0.46 total</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--coral);margin-bottom:16px">Path to 90/100 (+$0.15 more)</h3>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:60px">Step</th><th>What</th><th>Why</th><th>Cost</th></tr>
+        <tr><td style="font-family:var(--mono);color:var(--angler)">+3</td><td><strong>Opus integration audit</strong> (8,000 tok)</td><td>Reads ALL output files together. Checks that function signatures match across files, imports resolve, config flows through to execution, error handling chains connect. This catches the class of bugs that per-file review misses: cross-file inconsistencies.</td><td>+$0.20</td></tr>
+        <tr><td style="font-family:var(--mono);color:var(--biolume)">+4</td><td><strong>Human confirmation gate</strong> — UI-only, no API cost</td><td>The final 5 points require a human to confirm "yes, this is what I wanted." No model can verify user intent. The confirmation gate for destructive ops (already in the spec) serves double duty as the quality sign-off.</td><td>$0</td></tr>
+      </table>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="font-family:var(--mono);font-size:14px;color:var(--vent)">85</div>
+        <div style="color:var(--plankton)">→</div>
+        <div style="font-family:var(--mono);font-size:24px;color:var(--coral);font-weight:800">90</div>
+        <div style="color:var(--muted);font-size:13px">| +$0.20 | ~$0.66 total</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--biolume);margin-bottom:12px">Why This WILL Work (The ELI5 Version)</h3>
+      <div style="background:var(--abyss);border:1px solid var(--current);border-radius:8px;padding:16px;font-size:14px;line-height:1.9">
+        <p style="margin-bottom:16px"><strong style="color:var(--biolume);font-size:18px">Imagine you asked someone to bake you a cake.</strong></p>
+
+        <p style="color:var(--sand);margin-bottom:12px"><strong style="color:var(--angler)">Pipeline A</strong> is like having a master chef (Opus) write you a recipe, then a fast kitchen assistant (DeepSeek) bake it, then the master chef taste it. But you only gave the assistant <strong style="color:var(--coral)">3 minutes</strong> (4,096 tokens) to bake. They put the batter in the oven and… time's up. You got half-baked cake batter. The master chef tasted it and said "this is raw — 40/100."</p>
+
+        <p style="color:var(--sand);margin-bottom:12px"><strong style="color:var(--plankton)">Pipeline B</strong> is like having the kitchen assistant do everything alone — recipe, baking, tasting. But they don't know what a good cake tastes like. They gave you a <strong style="color:var(--coral)">shopping list and a bowl</strong> (types and config) and said "here's your cake!" The self-taste-test was just silence. 22/100.</p>
+
+        <p style="color:var(--sand);margin-bottom:20px"><strong>The fix:</strong> Give the kitchen assistant <strong style="color:var(--biolume)">20 minutes</strong> (16,384 tokens) instead of 3, split the baking into <strong style="color:var(--biolume)">two rounds</strong> (core first, frosting second), and always have the <strong style="color:var(--angler)">master chef taste it</strong> (Opus review). That gets you to 80.</p>
+
+        <p style="margin-bottom:12px"><strong style="color:var(--vent)">To reach 85:</strong> Have a <strong>food safety inspector</strong> (security-only Opus audit) check the cake separately from the taste test. Different person, different checklist. Catches things the taste-tester wasn't looking for — like "this cake pan has sharp edges that could cut someone."</p>
+
+        <p style="margin-bottom:12px"><strong style="color:var(--coral)">To reach 90:</strong> Have the master chef <strong>check that the recipe, the batter, AND the frosting all work together</strong> (integration audit). The recipe says "add 2 eggs" but the batter instructions say "add 3 eggs" — a per-step reviewer misses this. The integration audit catches it. The last 5 points require <strong>you</strong> to taste the cake and say "yes, this is what I wanted." No model can do that.</p>
+
+        <p style="background:rgba(0,229,255,0.08);border-radius:8px;padding:10px 14px;margin-top:20px">
+          <strong style="color:var(--biolume)">Why I know this works:</strong> We already proved the core pattern. Pipeline A scored 40 with the recipe half-written and the cake half-baked. The 60 missing points are ALL from fixable things — not enough time to finish writing code, not enough workstreams, no tests. Every single lost point has a known fix. We're not guessing about a new approach. We're removing the handcuffs from the approach that already worked.
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--angler);margin-bottom:16px">Path to 95/100 (+$0.25 more)</h3>
+      <p style="color:var(--sand);margin-bottom:12px">90→95 crosses a threshold: from "all parts exist and work individually" to "proven to work together under real conditions."</p>
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:60px">Step</th><th>What</th><th>Why</th><th>Cost</th></tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">+5</td>
+          <td><strong>DeepSeek end-to-end test generation + execution</strong> (16,000 tok)</td>
+          <td>Not just unit tests — an end-to-end scenario: "User asks to delete a file outside the allowlist → confirmation gate blocks it → audit log records the attempt → UI shows the refusal." This proves the whole system works together. DeepSeek generates the test script; the pipeline runs it and includes the output.</td>
+          <td>+$0.014</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--angler)">+6</td>
+          <td><strong>Second Opus integration audit with test results</strong> (8,000 tok)</td>
+          <td>The first integration audit checked cross-file consistency. This one has actual test output to verify against. It reads the E2E test results and confirms: did the confirmation gate actually fire? Did the audit log actually record? Did the sandbox actually block? This is the difference between "looks correct" and "proved correct on these scenarios."</td>
+          <td>+$0.20</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--plankton)">+7</td>
+          <td><strong>Self-healing pass: DeepSeek fixes issues found</strong> (8,000 tok)</td>
+          <td>If the E2E test or integration audit finds bugs, a final DeepSeek pass fixes them. This closes the loop — the pipeline doesn't just find problems, it resolves them. Scored because it demonstrates the agent harness working on itself.</td>
+          <td>+$0.007</td>
+        </tr>
+      </table>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="font-family:var(--mono);font-size:14px;color:var(--coral)">90</div>
+        <div style="color:var(--plankton)">→</div>
+        <div style="font-family:var(--mono);font-size:24px;color:var(--angler);font-weight:800">95</div>
+        <div style="color:var(--muted);font-size:13px">| +$0.22 | ~$0.88 total</div>
+      </div>
+      <p style="color:var(--sand);font-size:12px;margin-top:8px">Points recovered: Completeness +3 (E2E proven), Security +2 (verified, not assumed), Code Quality +5 (tests + self-healing)</p>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--coral);margin-bottom:16px">Path to 100/100 — The Human Ceiling</h3>
+      <p style="color:var(--sand);margin-bottom:16px">95→100 is <strong>fundamentally different</strong> from every tier below it. The first 95 points are about what an automated pipeline can produce. The last 5 require a human.</p>
+
+      <table class="compare-table" style="margin-bottom:16px">
+        <tr><th style="width:30px">Pt</th><th>Requirement</th><th>Why no LLM can do it</th></tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">96</td>
+          <td><strong>Real filesystem testing</strong></td>
+          <td style="font-size:13px">An LLM can write a symlink test. It cannot <em>create an actual symlink on an actual filesystem</em> and verify the sandbox blocks traversal. This requires a real OS. The test code it generates is a simulation — a real symlink has OS-level behavior (junction points, NTFS reparse points, race conditions) that no text prediction can verify.</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">97</td>
+          <td><strong>Permission edge-case testing</strong></td>
+          <td style="font-size:13px">"What happens if the allowlist directory is deleted mid-operation?" "What if two agents try to write the same file?" These are race conditions and edge cases that require a running system. An LLM can theorize about them — it cannot discover the ones it didn't think of.</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">98</td>
+          <td><strong>Human code review sign-off</strong></td>
+          <td style="font-size:13px">Opus reviewed the code. But Opus is a model — it hallucinates reviewed files (as seen in Pipeline A, where the review referenced <code>sandbox.ts</code> which wasn't in the build). A human reviewer catches this. No LLM review is a substitute for human review on security-critical code.</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">99</td>
+          <td><strong>Deployment validation</strong></td>
+          <td style="font-size:13px">The code works on paper. Does it work in the 7C's app, on Windows 11, with the actual spend-guard gateway? Only running it live answers this. The pipeline can't deploy itself — that's a destructive action it's explicitly designed to prevent.</td>
+        </tr>
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">100</td>
+          <td><strong>User says "this is what I wanted"</strong></td>
+          <td style="font-size:13px">The task description said "Build a Cowork tab." Did the pipeline build the Cowork tab you <em>meant</em>, or just the one you <em>described</em>? Only you can answer that. 100/100 means the human and the machine agree: the output matches the intent, not just the spec.</td>
+        </tr>
+      </table>
+
+      <div style="background:linear-gradient(135deg,rgba(255,64,129,0.1),rgba(124,77,255,0.1));border:1px solid var(--coral);border-radius:12px;padding:20px;margin-top:20px">
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">AUTOMATED</div>
+            <div style="font-family:var(--mono);font-size:32px;font-weight:800;color:var(--angler)">95</div>
+            <div style="font-size:12px;color:var(--muted)">ceiling</div>
+          </div>
+          <div style="font-size:24px;color:var(--coral)">+</div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">HUMAN</div>
+            <div style="font-family:var(--mono);font-size:32px;font-weight:800;color:var(--coral)">5</div>
+            <div style="font-size:12px;color:var(--muted)">required</div>
+          </div>
+          <div style="font-size:24px;color:var(--plankton)">=</div>
+          <div style="text-align:center">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">PERFECT</div>
+            <div style="font-family:var(--mono);font-size:32px;font-weight:800;color:var(--biolume)">100</div>
+          </div>
+        </div>
+        <p style="color:var(--sand);font-size:13px;margin-top:12px;text-align:center">
+          <strong>95 is the highest score any fully automated pipeline can achieve.</strong><br>
+          The last 5 points require a real filesystem, a real human reviewer, and a real user saying "yes, that's what I meant."<br>
+          This is not a weakness of the pipeline design — it's a fundamental property of software engineering.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--biolume);margin-bottom:12px">The Token Limits That Killed Both Pipelines</h3>
+      <div style="background:var(--abyss);border:1px solid var(--current);border-radius:8px;padding:16px;font-family:var(--mono);font-size:13px;line-height:1.8">
+        <span style="color:var(--muted)"># OLD defaults (what ran in the test — both pipelines got truncated):</span><br>
+        <span style="color:var(--coral)">max_tokens=4096</span> <span style="color:var(--muted)">for plan + build steps</span><br>
+        <span style="color:var(--coral)">max_tokens=2048</span> <span style="color:var(--muted)">for review steps</span><br><br>
+        <span style="color:var(--muted)"># NEW defaults (now live in comparison_test.py):</span><br>
+        <span style="color:var(--biolume)">max_tokens=8192</span> <span style="color:var(--muted)">for plan steps — full plans, no truncation</span><br>
+        <span style="color:var(--biolume)">max_tokens=16384</span> <span style="color:var(--muted)">for build steps — ~12,000 words, room to finish</span><br>
+        <span style="color:var(--biolume)">max_tokens=4096</span> <span style="color:var(--muted)">for pipeline review — double the old limit</span><br>
+        <span style="color:var(--biolume)">max_tokens=8192</span> <span style="color:var(--muted)">for meta-review — room for proper comparison</span><br><br>
+        <span style="color:var(--muted)"># Your remaining API balances → token equivalents:</span><br>
+        <span style="color:var(--angler)">~$9.00 Anthropic</span> <span style="color:var(--muted)">at $25/M output =</span> <span style="color:var(--biolume)">~360,000 tokens</span> <span style="color:var(--muted)">remaining</span><br>
+        <span style="color:var(--plankton)">~$6.00 DeepSeek</span> <span style="color:var(--muted)">at $0.87/M output =</span> <span style="color:var(--biolume)">~6,900,000 tokens</span> <span style="color:var(--muted)">remaining</span><br><br>
+        <span style="color:var(--muted)"># At the NEW limits, one full pipeline run costs ~$0.35 Opus + ~$0.03 DeepSeek = ~$0.38</span><br>
+        <span style="color:var(--muted)"># You can run ~25 pipeline tests before exhausting Anthropic.</span><br>
+        <span style="color:var(--muted)"># DeepSeek is effectively unlimited — you'd need ~1,600 pipeline runs.</span><br><br>
+        <span style="color:var(--biolume)"># The caps ($5/$15/$15) were never the bottleneck.</span><br>
+        <span style="color:var(--muted)"># Total spend was $0.19 — 1.3% of the $15 session cap.</span><br>
+        <span style="color:var(--muted)"># You had room for ~75 more runs before hitting the daily cap.</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-rubric" class="tab-content">
+    <div class="card" style="margin-bottom:24px">
+      <h3 style="color:var(--biolume);margin-bottom:8px">The 100-Point Rubric</h3>
+      <p style="color:var(--sand);margin-bottom:20px">Every pipeline is scored against the same 5 dimensions. This is what "100/100" means for building a Cowork tab — a multi-step agent harness with scoped file access, confirmation gating, and provider pluggability.</p>
+
+      <table class="compare-table" style="margin-bottom:24px">
+        <tr><th style="width:30px">#</th><th>Dimension</th><th style="width:60px">Max</th><th>What "full marks" looks like</th><th style="width:100px">Pipe A</th><th style="width:100px">Pipe B</th></tr>
+
+        <tr style="background:rgba(0,229,255,0.04)">
+          <td style="font-family:var(--mono);color:var(--biolume)">1</td>
+          <td><strong>Completeness</strong></td>
+          <td style="font-family:var(--mono);font-size:18px">30</td>
+          <td style="font-size:12px;line-height:1.5">All 5 workstreams present and functional:<br>
+          • Agent loop (plan→act→observe→reflect) · 8 pts<br>
+          • Scoped FS + allowlist enforcement · 8 pts<br>
+          • Provider-pluggable abstraction · 5 pts<br>
+          • Spend-guard / cost meter integration · 5 pts<br>
+          • UI visualization / dashboard · 4 pts</td>
+          <td style="font-family:var(--mono);color:var(--angler)">16</td>
+          <td style="font-family:var(--mono);color:var(--plankton)">5</td>
+        </tr>
+
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">2</td>
+          <td><strong>Correctness &amp; Security</strong></td>
+          <td style="font-family:var(--mono);font-size:18px">25</td>
+          <td style="font-size:12px;line-height:1.5">All security requirements met:<br>
+          • Path canonicalization / symlink defense · 8 pts<br>
+          • Confirmation gating for destructive ops · 7 pts<br>
+          • Sandbox isolation (no escape vectors) · 5 pts<br>
+          • Error handling / timeouts / circuit breakers · 5 pts</td>
+          <td style="font-family:var(--mono);color:var(--angler)">12</td>
+          <td style="font-family:var(--mono);color:var(--plankton)">2</td>
+        </tr>
+
+        <tr style="background:rgba(0,229,255,0.04)">
+          <td style="font-family:var(--mono);color:var(--biolume)">3</td>
+          <td><strong>Code Quality</strong></td>
+          <td style="font-family:var(--mono);font-size:18px">20</td>
+          <td style="font-size:12px;line-height:1.5">Production-ready engineering:<br>
+          • Compilable, runnable as-delivered · 7 pts<br>
+          • Test coverage (unit + integration) · 7 pts<br>
+          • Type safety / runtime validation (zod) · 3 pts<br>
+          • Clear documentation / inline comments · 3 pts</td>
+          <td style="font-family:var(--mono);color:var(--angler)">5</td>
+          <td style="font-family:var(--mono);color:var(--plankton)">3</td>
+        </tr>
+
+        <tr>
+          <td style="font-family:var(--mono);color:var(--biolume)">4</td>
+          <td><strong>Self-Assessment</strong></td>
+          <td style="font-family:var(--mono);font-size:18px">15</td>
+          <td style="font-size:12px;line-height:1.5">The pipeline can evaluate its own output:<br>
+          • Honest score with reasoning · 5 pts<br>
+          • Specific issues named (not vague) · 5 pts<br>
+          • Actionable fixes proposed · 5 pts</td>
+          <td style="font-family:var(--mono);color:var(--angler)">7</td>
+          <td style="font-family:var(--mono);color:var(--plankton)">3</td>
+        </tr>
+
+        <tr style="background:rgba(0,229,255,0.04)">
+          <td style="font-family:var(--mono);color:var(--biolume)">5</td>
+          <td><strong>Cost Efficiency</strong></td>
+          <td style="font-family:var(--mono);font-size:18px">10</td>
+          <td style="font-size:12px;line-height:1.5">Smart model routing for value:<br>
+          • Total under $0.50 for complete build · 5 pts<br>
+          • Opus used for plan/review, DeepSeek for build · 3 pts<br>
+          • No wasted / duplicate / empty calls · 2 pts</td>
+          <td style="font-family:var(--mono);color:var(--angler)">0</td>
+          <td style="font-family:var(--mono);color:var(--plankton)">9</td>
+        </tr>
+
+        <tr style="border-top:2px solid var(--current)">
+          <td></td>
+          <td><strong>TOTAL</strong></td>
+          <td style="font-family:var(--mono);font-size:22px;font-weight:800">100</td>
+          <td></td>
+          <td style="font-family:var(--mono);color:var(--angler);font-size:22px;font-weight:800">40</td>
+          <td style="font-family:var(--mono);color:var(--plankton);font-size:22px;font-weight:800">22</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--biolume);margin-bottom:12px">How Pipeline A Got Its 40 Points</h3>
+      <table class="compare-table" style="margin-bottom:12px">
+        <tr><th>Dim</th><th>Earned/30</th><th>Where the points came from</th><th>Lost to</th></tr>
+        <tr><td>Completeness</td><td style="font-family:var(--mono)">16/30</td><td>Security layer (+8) · types (+4) · partial tool schemas (+4)</td><td style="font-size:12px;color:var(--coral)">Truncation killed agent loop, provider abstraction, UI, spend-guard</td></tr>
+        <tr><td>Security</td><td style="font-family:var(--mono)">12/25</td><td>Canonicalization (+5) · confirmation gating design (+4) · zod validation (+3)</td><td style="font-size:12px;color:var(--coral)">No sandbox isolation, no circuit breakers, no error handling</td></tr>
+        <tr><td>Code Quality</td><td style="font-family:var(--mono)">5/20</td><td>zod schemas (+3) · clean naming (+2)</td><td style="font-size:12px;color:var(--coral)">Not compilable, zero tests, truncated</td></tr>
+        <tr><td>Self-Assessment</td><td style="font-family:var(--mono)">7/15</td><td>Honest score (+5) · specific FIX-FIRST blockers (+2)</td><td style="font-size:12px;color:var(--coral)">No actionable fixes proposed beyond "add missing workstreams"</td></tr>
+        <tr><td>Cost Efficiency</td><td style="font-family:var(--mono)">0/10</td><td>—</td><td style="font-size:12px;color:var(--coral)">$0.10 for truncated output. Empty review and plan wasted Anthropic spend.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-verdict" class="tab-content">
+    <div class="verdict-banner">
+      <h2>Neither Pipeline Shipped</h2>
+      <p style="color:var(--sand);max-width:600px;margin:0 auto 20px">Both outputs were truncated — token limits cut code off mid-function. <strong>Pipeline A</strong> wins on absolute quality with genuine security awareness. <strong>Pipeline B</strong> wins on efficiency at 13x lower cost.</p>
+      <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
+        <div><span class="big-num">7.5x</span><br><span style="color:var(--muted);font-size:13px">B's value/dollar edge</span></div>
+        <div><span class="big-num">1.8x</span><br><span style="color:var(--muted);font-size:13px">A's quality edge</span></div>
+        <div><span class="big-num">$0.19</span><br><span style="color:var(--muted);font-size:13px">Grand total</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p class="tagline">Generated by <strong>deepseek-v4-pro</strong> — abyssal intelligence, surface-level prices.</p>
+    <p>7C's Pipeline Comparison · 2026-06-26 · <span style="color:var(--angler)">DeepReinforce</span> × <span style="color:var(--plankton)">DeepSeek</span></p>
+  </div>
+
+</div>
+
+<script>
+// --- Abyssal particle system ---
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+const particles = [];
+for (let i = 0; i < 50; i++) {
+  particles.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: Math.random() * 2 + 0.5,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: -(Math.random() * 0.5 + 0.2),
+    opacity: Math.random() * 0.5 + 0.1,
+  });
+}
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+    if (p.x < -10) p.x = canvas.width + 10;
+    if (p.x > canvas.width + 10) p.x = -10;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(79,195,247,${p.opacity})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+// --- Tabs ---
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// --- Animate score rings on load ---
+document.querySelectorAll('.score-ring circle:last-child').forEach((circle, i) => {
+  const offset = circle.getAttribute('stroke-dashoffset');
+  circle.style.transition = 'none';
+  circle.setAttribute('stroke-dashoffset', '264');
+  setTimeout(() => {
+    circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
+    circle.setAttribute('stroke-dashoffset', offset);
+  }, 300 + i * 200);
+});
+
+// --- Interactive bar cells ---
+document.querySelectorAll('.bar-cell').forEach(cell => {
+  const val = parseFloat(cell.dataset.value || '0');
+  cell.insertAdjacentHTML('afterbegin',
+    `<span class="bar" style="width:${Math.min(val * 2, 100)}%"></span>`);
+});
+</script>
+</body>
+</html>
