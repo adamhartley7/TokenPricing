@@ -216,13 +216,13 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
 
     # ALL builds use Opus. DeepSeek quality ceiling is ~50. Opus starts at 70+.
     build_model = "claude-opus-4-8"
-    BUILD_TOK = 32000  # max for Opus — single file, fully complete
-    FIX_TOK = 16384
+    BUILD_TOK = 128000  # Opus 4.8 max output — room for complete production code
+    FIX_TOK = 64000
     steps = []; total = 0.0
 
-    # 1. Design (Opus, detailed — architecture mistakes here propagate)
+    # 1. Design (Opus, 32K tokens — architecture must be perfect, mistakes propagate)
     r = await call_anthropic(session, "claude-opus-4-8", SYS_DESIGN,
-        [{"role": "user", "content": f"Context (files this must integrate with):\n{context[:3000]}\n\nDesign this module. Be SPECIFIC: exact function signatures with parameter types, return types, every edge case to handle, error states, and how it connects to existing files."}], 8192, "design")
+        [{"role": "user", "content": f"Context (files this must integrate with):\n{context[:4000]}\n\nDesign this module. Be EXHAUSTIVELY SPECIFIC: exact function signatures with parameter types, return types, every edge case to handle, error states, and how it connects to existing files. This design is the build spec — nothing omitted."}], 32768, "design")
     steps.append(("design", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
@@ -232,9 +232,9 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
     steps.append(("build", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
-    # 3. Review (Opus)
+    # 3. Review (Opus, 8K tokens — thorough)
     r = await call_anthropic(session, "claude-opus-4-8", SYS_REVIEW,
-        [{"role": "user", "content": f"Review:\nDesign:\n{steps[0][1].get('body','')[:2000]}\n\nBuild:\n{steps[1][1].get('body','')[:4000]}"}], 4096, "review")
+        [{"role": "user", "content": f"Review:\nDesign:\n{steps[0][1].get('body','')[:3000]}\n\nBuild:\n{steps[1][1].get('body','')[:8000]}"}], 8192, "review")
     steps.append(("review", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
@@ -244,12 +244,12 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
     steps.append(("fix", r)); total += r.get("cost", 0)
     if r.get("error"): return {"steps": steps, "cost": total, "error": r["error"]}
 
-    # 5. Quality loop: fix → review → repeat until score >= 85 (max 3 extra cycles)
+    # 5. Quality loop: fix → review → repeat until score >= 85 (max 5 extra cycles)
     final = r.get("body", "") or steps[1][1].get("body", "")
     best_score = 0; quality_cycles = 0
-    for q_cycle in range(4):  # up to 3 extra fix-review cycles
+    for q_cycle in range(6):  # up to 5 extra fix-review cycles
         r = await call_anthropic(session, "claude-opus-4-8", SYS_REVIEW,
-            [{"role": "user", "content": f"Review. Score out of 100.\nTarget: 85-95. Be critical.\n\nOutput to review:\n{final[:4000]}"}], 2048, f"review-q{q_cycle}")
+            [{"role": "user", "content": f"Review. Score out of 100.\nTarget: 85-95. Be critical.\n\nOutput to review:\n{final[:8000]}"}], 8192, f"review-q{q_cycle}")
         steps.append((f"review_q{q_cycle}", r)); total += r.get("cost", 0)
         if r.get("error"): break
 
@@ -261,7 +261,7 @@ async def process_task(session, task_desc, out_dir, context="", use_opus=False):
 
         if score >= 85:
             break
-        if q_cycle < 3:
+        if q_cycle < 5:
             print(f"  [score {score}/100, re-fixing...]", end="", flush=True)
             r = await call_anthropic(session, "claude-opus-4-8", SYS_FIX,
                 [{"role": "user", "content": f"Fix EVERY issue:\n{r.get('body','')[:3000]}\n\nCurrent code:\n{final[:2000]}"}], FIX_TOK, f"fix-q{q_cycle}")
