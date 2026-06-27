@@ -1,0 +1,11 @@
+- **Agent Harness & Provider-Pluggable Architecture**  
+  Design a multi-step agent runtime that accepts high-level tasks, breaks them into subtasks, and iteratively executes tool calls while maintaining context. Abstract the AI backend behind a provider interface (e.g., OpenAI, Anthropic, local models) so that new providers can be added by implementing a common API. The harness will reuse the existing spend-guard gateway for all model and tool calls, ensuring cost is tracked and limited under the user’s budget.
+
+- **Scoped File System Access & Destructive Operation Confirmation**  
+  Implement a file-system toolset restricted to a configurable allowlist of directories. All operations (read, write, delete, move) are validated against the allowlist; destructive actions (deletes, overwrites, moves outside allowed scopes) trigger a mandatory confirmation prompt that blocks the agent until the user approves. The confirmation UI will be integrated into the cowork tab and will display details of the impending change.
+
+- **Shared Spend-Guard Gateway & Cost Meter Integration**  
+  Wire the agent’s model and tool calls through the existing spend-guard gateway (API proxy with rate/cost limits). The cost meter component already used by Chat and Code tabs will be reused to display real-time consumption and remaining budget, ensuring a consistent cross-tab spending experience. The gateway will enforce per-user quotas and prevent any operation that would exceed budget without additional confirmation.
+
+- **Cowork Tab UI with Multi-Step Visualization & Review**  
+  Build a dedicated tab that visualizes the agent’s current plan, execution steps, and status. The UI will allow users to inspect, edit, or skip pending steps, provide confirmations for destructive operations, and monitor cost accumulation. It will follow the same design patterns as Chat/Code tabs, pulling the existing spend-guard meter component and adding a step timeline, log viewer, and inline confirmation dialogs. Safety checks and rollback previews will be shown where applicable, with the ability to pause or abort the agent.

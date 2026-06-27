@@ -1,0 +1,23 @@
+{
+  "task": "Build a Cowork tab for the 7C's app \u2014 a multi-step agent harness with scoped file access, allowlisted directories, no destructive ops without confirmation, and provider-pluggable, sharing the same spe",
+  "timestamp": "2026-06-26T16:58:51.215799",
+  "pipelines": {
+    "A (Opus->DeepSeek->Opus)": {
+      "total_cost": 0.0,
+      "total_tokens": 0
+    },
+    "B (Full DeepSeek)": {
+      "total_cost": 0.008199,
+      "total_tokens": 11306
+    }
+  },
+  "meta_reviews": {
+    "opus": {
+      "cost": 0.0
+    },
+    "deepseek": {
+      "cost": 0.002681
+    }
+  },
+  "grand_total": 0.010879999999999999
+}

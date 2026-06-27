@@ -1,0 +1,66 @@
+Build a Cowork tab for the 7C's app — Phase 4 of the build plan.
+
+## What 7C's already is
+7C's is a personal self-hosted multi-provider AI workbench running on Windows 11. Architecture:
+- **Gateway** (FastAPI, port 8787): spend-guard that enforces dollar caps BEFORE every paid API call, then meters actual cost. Providers: Anthropic (Claude Opus/Sonnet/Haiku) and DeepSeek (V4-Pro/Flash). Located at `7ces/gateway/`.
+- **Chat tab** (Phase 1, live): send messages to any provider through the gateway. PWA-installable. Located at `http://localhost:8787/chat`.
+- **Code tab** (Phase 3, live): type a task → Opus plans → DeepSeek builds → Opus reviews. Orchestrator engine at `7ces/gateway/orchestrator.py`, web route at `POST /code/run`. Shows plan/build/review with model routing and cost.
+- **Cost meter** (Phase 1, live): running session/day spend at `http://localhost:8787/`.
+
+## What the Cowork tab needs (Phase 4)
+A multi-step agent harness with:
+
+### 1. Agent loop (plan → act → observe → reflect)
+- Accept a task description from the user
+- The agent plans the next action, executes it via tools, observes the result, and decides whether to continue
+- Supports iterative refinement — keeps working until the task is complete or the user stops it
+- Shows live progress: which step it's on, what tool it's calling, what the result was
+
+### 2. Scoped file access with allowlisted directories
+- The agent can ONLY read/write within user-configured allowlisted directories
+- Path canonicalization: use `fs.realpath` (NOT `path.resolve`) to prevent symlink escapes
+- Belt-and-suspenders: `path.relative` check after canonicalization
+- Parent-directory validation for writes to new files (must be within allowlist)
+- Reject `..` traversal, symlink escapes, and NTFS junction/reparse-point escapes
+- Deny-by-default: any path not explicitly allowed is rejected
+
+### 3. Destructive operation confirmation gating
+- Any operation that modifies files (write, delete, move) OR executes code/shell MUST prompt for user confirmation
+- Confirmation shows: what will happen, which files are affected, what the risk level is
+- User can approve individual operations or batch-approve a sequence
+- No destructive op proceeds without explicit confirmation
+- Read-only operations (list files, read file contents) do not require confirmation
+
+### 4. Provider-pluggable
+- The agent can use any provider configured in the gateway
+- User selects which provider/model runs the agent's planning and execution steps
+- Same provider abstraction as the Chat and Code tabs
+- Default: Opus for planning/decision, DeepSeek for tool execution
+
+### 5. Shared spend-guard and cost meter
+- Every agent tool call flows through the EXISTING spend-guard gateway
+- The dollar caps are enforced before every paid API call
+- Per-step cost attribution: the UI shows what each agent step cost
+- Running session total matches the Chat and Code tab cost meter
+
+### 6. UI
+- New "Cowork" tab in the chat UI (next to Chat and Code)
+- Task input box with Run button
+- Live progress display: shows the agent's current step, tool calls, and results
+- Collapsible step history
+- Confirmation dialog: appears when agent wants to do something destructive
+- Cost display: per-step and running session total
+- The Cowork tab reuses the existing CSS/design system from the Chat and Code tabs
+
+## Technical constraints
+- Runs on Windows 11, Python 3.13, FastAPI
+- Gateway is at `7ces/gateway/app.py`
+- Chat UI is at `7ces/gateway/chat.html` (single-file, all inline CSS/JS)
+- Provider adapters are at `7ces/gateway/providers/anthropic.py` and `7ces/gateway/providers/deepseek.py`
+- Spend guard is at `7ces/gateway/spendguard.py`
+- Orchestrator engine is at `7ces/gateway/orchestrator.py`
+- All files use the existing code patterns — match the style
+- 41 existing tests must continue to pass
+
+## Output format
+Produce complete, runnable files. Each file with its exact path and full contents. No placeholders. No "rest unchanged." Include a Run section with the Windows PowerShell commands to test it.

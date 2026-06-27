@@ -35,6 +35,12 @@ import pricing
 import tokencount
 from config import config
 from ledger import SESSION_ID, Ledger
+import calibrate as _calibrate
+import classifier as _classifier
+import loop as _loop
+import priors as _priors
+import profile as _profile
+from ledger import SESSION_ID, Ledger
 from orchestrator import OrchestrateResult, run as orchestrate_run
 from providers import AnthropicProvider, DeepSeekProvider
 from providers.base import coerce_per_request_cap
@@ -448,6 +454,103 @@ class ProviderError(Exception):
 def _post_context(request: Request):
     """Minimal context for spend-guard (the real guard reads from config, not here)."""
     return {}
+
+
+# --- Token Estimation API (TOP protocol + integrated papers) ---------------
+@app.post("/estimate")
+async def estimate(request: Request):
+    """Estimate token usage for a task description. Returns P10/P50/P90 with cost band.
+
+    POST body: {description: str, model?: str}
+    Response: {mode, archetype, confidence, tokens: {p10,p50,p90}, cost: {p10,p50,p90}, calibration}
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, status_code=400)
+
+    description = (body.get("description") or body.get("prompt") or "").strip()
+    if not description:
+        return JSONResponse({"error": "missing 'description' field"}, status_code=400)
+
+    model = body.get("model", "claude-opus-4-8")
+
+    # Ensemble classification (LSMC-EPMC inspired)
+    mode, archetype, confidence = await _classifier.classify(description)
+
+    # Profile extraction
+    prof = _profile.extract_profile(description)
+    proxy = prof.scope_proxy()
+    N = prof.N_estimate()
+
+    # Priors for this class
+    mu = _priors.mu0_r_in(mode, archetype)
+    sigma = _priors.sigma0(mode, archetype)
+    r_out = _priors.r_out(mode, archetype)
+
+    # Token estimates (AG-1 model for agentic, SS-1 for single-shot)
+    if mode == "agentic":
+        H = _priors.overhead_H()
+        delta = _priors.delta_per_turn()
+        total_input = N * H + delta * N * (N - 1) / 2
+        total_output = N * 500  # ~500 output tokens/turn
+    else:
+        total_input = proxy
+        total_output = int(proxy * r_out)
+
+    q = _calibrate.quantiles(proxy, mu, sigma)
+    total_tokens_p50 = q["p50"] + int(total_output * (q["p50"] / max(proxy, 1)))
+    total_tokens_p10 = q["p10"] + int(total_output * (q["p10"] / max(proxy, 1)))
+    total_tokens_p90 = q["p90"] + int(total_output * (q["p90"] / max(proxy, 1)))
+
+    # Cost estimate using pricing
+    from pricing import rates as _rates
+    rates = _rates(model)
+    in_rate = rates.get("input", 0)
+    out_rate = rates.get("output", 0)
+
+    def _cost(tok):
+        in_tok = int(tok * 0.8)
+        out_tok = int(tok * 0.2)
+        return round((in_tok * in_rate + out_tok * out_rate) / 1_000_000, 6)
+
+    return JSONResponse({
+        "mode": mode,
+        "archetype": archetype,
+        "confidence": confidence,
+        "model": model,
+        "tokens": {
+            "p10": total_tokens_p10,
+            "p50": total_tokens_p50,
+            "p90": total_tokens_p90,
+        },
+        "cost": {
+            "p10": _cost(total_tokens_p10),
+            "p50": _cost(total_tokens_p50),
+            "p90": _cost(total_tokens_p90),
+        },
+        "calibration": {
+            "method": "prior",
+            "note": "no ledger data yet for this class — pure first-principles prior",
+        },
+        "profile": prof.to_dict(),
+    })
+
+
+@app.get("/estimate/history")
+async def estimate_history(task_class: str = "build_iterate"):
+    """Return calibration quality metrics over time for a task class."""
+    led = Ledger()
+    result = _calibrate.calibrate_from_ledger(led, task_class)
+    return JSONResponse(result)
+
+
+# --- Loop Engineering: Discovery endpoint -----------------------------------
+@app.get("/tasks/pending")
+async def tasks_pending():
+    """Return actionable TODO items from the vault that need estimation."""
+    manifest = _loop.pending_manifest()
+    return JSONResponse(manifest)
 
 
 # --- PWA assets (make /chat installable on a phone) ------------------------

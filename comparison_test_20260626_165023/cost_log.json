@@ -1,0 +1,23 @@
+{
+  "task": "say hi in Python",
+  "timestamp": "2026-06-26T16:50:59.093886",
+  "pipelines": {
+    "A (Opus->DeepSeek->Opus)": {
+      "total_cost": 0.0,
+      "total_tokens": 0
+    },
+    "B (Full DeepSeek)": {
+      "total_cost": 0.000951,
+      "total_tokens": 1270
+    }
+  },
+  "meta_reviews": {
+    "opus": {
+      "cost": 0.0
+    },
+    "deepseek": {
+      "cost": 0.001268
+    }
+  },
+  "grand_total": 0.002219
+}

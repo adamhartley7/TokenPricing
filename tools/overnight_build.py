@@ -50,8 +50,14 @@ def _read_key_file(name: str) -> str | None:
             except OSError: continue
     return None
 
-ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY") or _read_key_file(".anthropic-key") or ""
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY") or _read_key_file(".deepseek-key") or ""
+# Key file first (most reliable), env var as override only if it looks valid
+_file_ak = _read_key_file(".anthropic-key") or ""
+_env_ak = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+ANTHROPIC_KEY = _env_ak if _env_ak.startswith("sk-ant") else _file_ak
+
+_file_dk = _read_key_file(".deepseek-key") or ""
+_env_dk = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
+DEEPSEEK_KEY = _env_dk if _env_dk.startswith("sk-") else _file_dk
 
 PRICING = {
     "claude-opus-4-8": {"input": 5.00, "output": 25.00, "cache_read": 0.50},
@@ -97,14 +103,14 @@ async def call_anthropic(session, model, system, messages, max_tokens):
             "duration_s": round(time.monotonic() - t0, 2), "error": None}
 
 async def call_deepseek(session, model, system, messages, max_tokens):
-    url = f"{DEEPSEEK_BASE}/chat/completions"
+    """Call DeepSeek through the 7C's gateway (which has the correct key + endpoint)."""
+    url = f"{GATEWAY_URL}/deepseek/v1/chat/completions"
     msgs = [{"role": "system", "content": system}] if system else []
     msgs.extend(messages)
     body = {"model": model, "messages": msgs, "max_tokens": max_tokens, "stream": True}
-    headers = {"authorization": f"Bearer {DEEPSEEK_KEY}", "content-type": "application/json"}
 
     t0 = time.monotonic(); text = ""; inp = out = 0
-    async with session.stream("POST", url, json=body, headers=headers, timeout=300.0) as r:
+    async with session.stream("POST", url, json=body, timeout=300.0) as r:
         if r.status_code >= 400:
             body_text = await r.aread()
             return {"body": "", "input_tokens": 0, "output_tokens": 0,

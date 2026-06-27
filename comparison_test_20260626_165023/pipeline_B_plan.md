@@ -1,0 +1,4 @@
+- Ensure Python is installed on your system, available from the terminal or command prompt.  
+- Create a new file named `greet.py` using any text editor and add the line `print("hi")`.  
+- Open a terminal, navigate to the script’s directory, and run `python greet.py` (or `python3 greet.py`).  
+- Confirm that the word `hi` appears in the terminal output.

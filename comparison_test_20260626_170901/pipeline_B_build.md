@@ -1,0 +1,145 @@
+# B — build
+Model: deepseek-v4-pro | Provider: deepseek
+Tokens: 519+4096 | Cost: $0.003789 | Duration: 64.31s
+
+**cowork/hooks/useCoworkAgent.ts**
+```typescript
+import { useReducer, useCallback, useEffect, useRef } from "react";
+
+// Types matching the backend events
+export interface CoworkState {
+  status: "idle" | "planning" | "executing" | "paused" | "completed" | "error";
+  plan: PlanStep[];
+  currentStepIndex: number | null;
+  logs: LogEntry[];
+  costTotal: number;
+  budgetRemaining: number;
+  pendingConfirmation: ConfirmationRequest | null;
+  error: string | null;
+}
+
+export interface PlanStep {
+  id: string;
+  description: string;
+  status: "pending" | "in_progress" | "completed" | "skipped" | "error";
+  toolCalls?: ToolCall[];
+}
+
+export interface ToolCall {
+  tool: string;
+  args: any;
+  result?: string;
+  pendingConfirmation?: boolean;
+}
+
+export interface LogEntry {
+  timestamp: number;
+  message: string;
+  type: "info" | "warning" | "error";
+}
+
+export interface ConfirmationRequest {
+  confirmationId: string;
+  action: string;
+  details: string;
+  toolCall: ToolCall;
+}
+
+type CoworkAction =
+  | { type: "PLAN_RECEIVED"; plan: PlanStep[] }
+  | { type: "STEP_START"; stepIndex: number }
+  | { type: "LOG"; entry: LogEntry }
+  | { type: "CONFIRMATION_REQUIRED"; request: ConfirmationRequest }
+  | { type: "STEP_COMPLETE"; stepIndex: number; toolCalls: ToolCall[] }
+  | { type: "COST_UPDATE"; costTotal: number; budgetRemaining: number }
+  | { type: "PAUSED" }
+  | { type: "RESUMED" }
+  | { type: "COMPLETED" }
+  | { type: "ERROR"; error: string }
+  | { type: "RESET" };
+
+function coworkReducer(state: CoworkState, action: CoworkAction): CoworkState {
+  switch (action.type) {
+    case "PLAN_RECEIVED":
+      return {
+        ...state,
+        plan: action.plan,
+        currentStepIndex: null,
+        status: "executing",
+        pendingConfirmation: null,
+      };
+    case "STEP_START":
+      return {
+        ...state,
+        currentStepIndex: action.stepIndex,
+        plan: state.plan.map((step, idx) =>
+          idx === action.stepIndex ? { ...step, status: "in_progress" } : step
+        ),
+        pendingConfirmation: null,
+      };
+    case "LOG":
+      return { ...state, logs: [...state.logs, action.entry] };
+    case "CONFIRMATION_REQUIRED":
+      return { ...state, status: "paused", pendingConfirmation: action.request };
+    case "STEP_COMPLETE":
+      return {
+        ...state,
+        currentStepIndex: null,
+        plan: state.plan.map((step, idx) =>
+          idx === action.stepIndex
+            ? { ...step, status: "completed", toolCalls: action.toolCalls }
+            : step
+        ),
+        // if all steps done, status→completed (handled by COMPLETED event)
+      };
+    case "COST_UPDATE":
+      return { ...state, costTotal: action.costTotal, budgetRemaining: action.budgetRemaining };
+    case "PAUSED":
+      return { ...state, status: "paused" };
+    case "RESUMED":
+      return { ...state, status: "executing", pendingConfirmation: null };
+    case "COMPLETED":
+      return { ...state, status: "completed", currentStepIndex: null };
+    case "ERROR":
+      return { ...state, status: "error", error: action.error };
+    case "RESET":
+      return initialState;
+    default:
+      return state;
+  }
+}
+
+const initialState: CoworkState = {
+  status: "idle",
+  plan: [],
+  currentStepIndex: null,
+  logs: [],
+  costTotal: 0,
+  budgetRemaining: 0,
+  pendingConfirmation: null,
+  error: null,
+};
+
+export function useCoworkAgent(agentWsUrl: string) {
+  const [state, dispatch] = useReducer(coworkReducer, initialState);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number>();
+
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    const ws = new WebSocket(agentWsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      dispatch({ type: "RESET" });
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        switch (msg.type) {
+          case "plan":
+            dispatch({ type: "PLAN_RECEIVED", plan: msg.plan });
+            break;
+          case "step_start":
+            dispatch({ type:

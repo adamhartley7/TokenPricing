@@ -1,0 +1,214 @@
+cowork-tab/shared/types.ts
+```typescript
+export enum SessionStatus {
+  IDLE = 'IDLE',
+  PLANNING = 'PLANNING',
+  ACTING = 'ACTING',
+  OBSERVING = 'OBSERVING',
+  REFLECTING = 'REFLECTING',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  ERROR = 'ERROR',
+  ABORTED = 'ABORTED',
+}
+
+export enum OperationType {
+  READ = 'read',
+  WRITE = 'write',
+  DELETE = 'delete',
+  EDIT = 'edit',
+  SHELL = 'shell',
+  SEARCH = 'search',
+}
+
+export interface IAllowlistEntry {
+  path: string;
+  readOnly: boolean;
+}
+
+export interface IOperationPreview {
+  description: string;
+  filesAffected: string[];
+  diff?: string;
+  canUndo?: boolean;
+}
+
+export interface IToolCall {
+  tool: string;
+  params: Record<string, any>;
+  id: string;
+  reasoning?: string;
+}
+
+export interface IToolResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  data?: any;
+}
+
+export interface IStep {
+  id: string;
+  type: OperationType;
+  status: 'pending' | 'confirmed' | 'running' | 'completed' | 'failed';
+  toolCall: IToolCall;
+  result?: IToolResult;
+  startedAt?: number;
+  finishedAt?: number;
+  cost?: number;
+}
+
+export interface IPlannedStep extends IStep {
+  isDestructive: boolean;
+  preview?: IOperationPreview;
+}
+
+export interface ITranscriptEntry {
+  timestamp: number;
+  type: 'system' | 'user' | 'agent' | 'tool_input' | 'tool_output' | 'cost' | 'confirmation_request' | 'confirmation_response';
+  message: string;
+  data?: any;
+}
+
+export interface IConfirmationRequest {
+  id: string;
+  sessionId: string;
+  stepId: string;
+  operation: IOperationPreview;
+  timeoutMs?: number;
+}
+
+export interface IConfirmationResponse {
+  approved: boolean;
+  comment?: string;
+}
+
+export interface ISessionState {
+  id: string;
+  status: SessionStatus;
+  task: string;
+  steps: IStep[];
+  plannedSteps: IPlannedStep[];
+  transcript: ITranscriptEntry[];
+  totalCost: number;
+  budgetLimit: number;
+  maxSteps: number;
+  currentStep: number;
+  allowlist: IAllowlistEntry[];
+  createdAt: number;
+}
+```
+
+cowork-tab/config/cowork.config.ts
+```typescript
+import path from 'path';
+
+export const coworkConfig = {
+  // Default allowlisted directories (absolute)
+  defaultAllowlist: [
+    {
+      path: process.env.HOME || process.env.USERPROFILE || '/',
+      readOnly: false,
+    },
+  ],
+  maxDefaultSteps: 10,
+  stepBudgetCapUSD: 0.1, // per step
+  totalBudgetCapUSD: 1.0,
+  providerTimeoutMs: 30000,
+  confirmationTimeoutMs: 120000,
+  maxIterations: 20,
+  stagingDir: path.resolve(__dirname, '../staging'),
+};
+```
+
+cowork-tab/backend/fs/sandbox.ts
+```typescript
+import fs from 'fs/promises';
+import path from 'path';
+import { diffLines } from 'diff';
+import { IAllowlistEntry, IOperationPreview, OperationType } from '../../shared/types';
+import { coworkConfig } from '../../config/cowork.config';
+
+export class FileSandbox {
+  private allowlist: IAllowlistEntry[] = [];
+  private stagingBase: string = coworkConfig.stagingDir;
+
+  constructor(allowlist?: IAllowlistEntry[]) {
+    if (allowlist) this.allowlist = allowlist.map(entry => ({
+      ...entry,
+      path: path.resolve(entry.path),
+    }));
+    else this.allowlist = [...coworkConfig.defaultAllowlist];
+  }
+
+  addAllowedDir(entry: IAllowlistEntry) {
+    this.allowlist.push({ ...entry, path: path.resolve(entry.path) });
+  }
+
+  removeAllowedDir(dirPath: string) {
+    this.allowlist = this.allowlist.filter(e => e.path !== dirPath);
+  }
+
+  /**
+   * Validates a user-provided path (relative or absolute) against the allowlist.
+   * Throws if path is outside allowed scope or attempts traversal.
+   */
+  async resolveAndValidate(userPath: string): Promise<string> {
+    // Resolve to absolute, relative to cwd if relative
+    const resolved = path.resolve(userPath);
+
+    // Basic traversal check: after resolution, ensure no '..' segments remain
+    // that could escape the resolved base. Path.resolve already normalizes, so
+    // we just check if the resolved path starts with any allowed directory.
+    const allowed = this.allowlist.some(entry => {
+      const normalizedEntry = entry.path.endsWith(path.sep) ? entry.path : entry.path + path.sep;
+      return resolved.startsWith(normalizedEntry);
+    });
+
+    if (!allowed) {
+      throw new Error(`Access denied: path "${userPath}" (resolved: "${resolved}") is outside allowed directories.`);
+    }
+
+    // Check if file exists? Not needed for validation but may be required later.
+    return resolved;
+  }
+
+  /**
+   * Classify an operation and determine if destructive.
+   */
+  classifyOperation(op: { type: OperationType; path?: string }): { isDestructive: boolean; preview?: () => Promise<IOperationPreview> } {
+    switch (op.type) {
+      case OperationType.READ:
+      case OperationType.SEARCH:
+        return { isDestructive: false };
+      case OperationType.WRITE: {
+        const isNew = op.path ? !fs.stat(op.path).then(() => true).catch(() => false) : true;
+        return {
+          isDestructive: !(isNew), // writing to an existing file is destructive
+          preview: async () => {
+            if (!op.path) throw new Error('Missing path');
+            const absPath = await this.resolveAndValidate(op.path);
+            const exists = await fs.stat(absPath).then(() => true).catch(() => false);
+            if (!exists) return { description: `Create new file: ${absPath}`, filesAffected: [absPath] };
+            const oldContent = await fs.readFile(absPath, 'utf8');
+            return { description: `Overwrite file: ${absPath}`, filesAffected: [absPath], diff: `File will be overwritten (current size ${oldContent.length} bytes)` };
+          }
+        };
+      }
+      case OperationType.DELETE:
+        return {
+          isDestructive: true,
+          preview: async () => {
+            if (!op.path) throw new Error('Missing path');
+            const absPath = await this.resolveAndValidate(op.path);
+            return { description: `Delete file: ${absPath}`, filesAffected: [absPath], canUndo: false };
+          }
+        };
+      case OperationType.EDIT:
+        return {
+          isDestructive: true,
+          preview: async () => {
+            if (!op.path) throw new Error('Missing path');
+            const absPath = await this.resolveAndValidate(op.path);
+            const oldContent = await fs.readFile(absPath, 'utf8');
+            //
